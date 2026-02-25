@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { updateChat } from '../../api/chats.js';
+import { api } from '../../api/client.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -12,11 +12,11 @@ export const updateCommentCommand = new Command('update')
     startSpinner('Updating comment...');
 
     try {
-      const chat = await updateChat(chatId, { message: options.message });
+      const response = await api.v1ChatsUpdate(chatId, { message: options.message });
       succeedSpinner('Comment updated');
 
       printJson({
-        comment: chat,
+        comment: response.data,
       });
     } catch (err) {
       failSpinner('Failed to update comment');

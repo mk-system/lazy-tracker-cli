@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { createInterface } from 'node:readline';
-import { deleteChat } from '../../api/chats.js';
+import { api } from '../../api/client.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -35,7 +35,7 @@ export const deleteCommentCommand = new Command('delete')
     startSpinner('Deleting comment...');
 
     try {
-      await deleteChat(chatId);
+      await api.v1ChatsDelete(chatId);
       succeedSpinner('Comment deleted');
 
       printJson({

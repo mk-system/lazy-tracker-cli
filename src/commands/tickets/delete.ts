@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { createInterface } from 'node:readline';
-import { deleteTicket, getTicketsByTeamAndProject, getTicketById } from '../../api/tickets.js';
+import { api } from '../../api/client.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -39,20 +39,16 @@ async function resolveTicket(
 
     startSpinner('Looking up ticket...');
     try {
-      const tickets = await getTicketsByTeamAndProject(resolved.team, resolved.project);
-      const ticketNumber = parseInt(ticketIdOrNumber, 10);
-      const found = tickets.find((t) => t.ticketNumber === ticketNumber);
+      const response = await api.v1TeamsProjectsTicketsByNumberDetail(
+        resolved.team,
+        resolved.project,
+        ticketIdOrNumber
+      );
 
-      if (!found) {
-        failSpinner('Ticket not found');
-        console.error(`Ticket #${ticketNumber} not found`);
-        process.exit(1);
-      }
-
-      succeedSpinner(`Found ticket #${ticketNumber}`);
-      return { id: found.id, title: found.title };
+      succeedSpinner(`Found ticket #${ticketIdOrNumber}`);
+      return { id: response.data.id, title: response.data.title };
     } catch (err) {
-      failSpinner('Failed to lookup ticket');
+      failSpinner('Ticket not found');
       console.error(formatError(err));
       process.exit(1);
     }
@@ -60,9 +56,9 @@ async function resolveTicket(
 
   startSpinner('Fetching ticket details...');
   try {
-    const ticket = await getTicketById(ticketIdOrNumber);
+    const response = await api.v1TicketsDetail(ticketIdOrNumber);
     succeedSpinner('Ticket found');
-    return { id: ticketIdOrNumber, title: ticket.title };
+    return { id: ticketIdOrNumber, title: response.data.title };
   } catch (err) {
     failSpinner('Failed to fetch ticket');
     console.error(formatError(err));
@@ -91,7 +87,7 @@ export const deleteTicketCommand = new Command('delete')
     startSpinner('Deleting ticket...');
 
     try {
-      await deleteTicket(ticketId);
+      await api.v1TicketsDelete(ticketId);
       succeedSpinner('Ticket deleted');
 
       printJson({

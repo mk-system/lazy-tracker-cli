@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { getTicketById, getTicketsByTeamAndProject, type Ticket } from '../../api/tickets.js';
+import { api } from '../../api/client.js';
+import type { JpMkscLazytrackerApiModelsTicketTicketResponse as Ticket } from '../../api/__generated__/data-contracts.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -24,20 +25,17 @@ async function fetchTicket(
     }
 
     const context = { team: resolved.team, project: resolved.project };
-    const tickets = await getTicketsByTeamAndProject(resolved.team, resolved.project);
-    const ticketNumber = parseInt(ticketIdOrNumber, 10);
-    const found = tickets.find((t) => t.ticketNumber === ticketNumber);
+    const response = await api.v1TeamsProjectsTicketsByNumberDetail(
+      resolved.team,
+      resolved.project,
+      ticketIdOrNumber
+    );
 
-    if (!found) {
-      failSpinner('Failed to fetch ticket');
-      console.error(`Ticket #${ticketNumber} not found`);
-      process.exit(1);
-    }
-
-    return { ticket: found, context };
+    return { ticket: response.data, context };
   }
 
-  return { ticket: await getTicketById(ticketIdOrNumber), context: {} };
+  const response = await api.v1TicketsDetail(ticketIdOrNumber);
+  return { ticket: response.data, context: {} };
 }
 
 export const showTicketCommand = new Command('show')

@@ -9,7 +9,7 @@ async function main() {
     modular: true,
     generateRouteTypes: false,
     generateUnionEnums: true,
-    generateClient: false,
+    generateClient: true,
     extractEnums: true,
     extractRequestBody: true,
     enumNamesAsValues: true,

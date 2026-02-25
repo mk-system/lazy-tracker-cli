@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { getAllProjects, getProjectsByTeamKey, getRecentProjects } from '../../api/projects.js';
+import { api } from '../../api/client.js';
 import { printTable, printJson, truncate, type TableColumn } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -13,12 +13,13 @@ export const projectsCommand = new Command('projects')
     startSpinner('Fetching projects...');
 
     try {
-      const projects = await (options.recent
-        ? getRecentProjects()
+      const response = await (options.recent
+        ? api.v1ProjectsRecentList()
         : options.team
-          ? getProjectsByTeamKey(options.team)
-          : getAllProjects());
+          ? api.v1ProjectsTeamDetail(options.team)
+          : api.v1ProjectsList());
 
+      const projects = response.data;
       succeedSpinner(`Found ${projects.length} project(s)`);
 
       if (options.json) {

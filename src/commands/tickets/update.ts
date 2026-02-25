@@ -1,10 +1,9 @@
 import { Command } from 'commander';
-import {
-  updateTicket,
-  getTicketsByTeamAndProject,
-  type TicketUpdateRequest,
-  type TicketState,
-} from '../../api/tickets.js';
+import { api } from '../../api/client.js';
+import type {
+  JpMkscLazytrackerApiModelsTicketTicketUpdateRequest as TicketUpdateRequest,
+  JpMkscLazytrackerApiModelsCommonTicketStateEnum as TicketState,
+} from '../../api/__generated__/data-contracts.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -32,20 +31,17 @@ async function resolveTicketId(
 
   startSpinner('Looking up ticket...');
   try {
-    const tickets = await getTicketsByTeamAndProject(resolved.team, resolved.project);
-    const ticketNumber = parseInt(ticketIdOrNumber, 10);
-    const found = tickets.find((t) => t.ticketNumber === ticketNumber);
-
-    if (!found) {
-      failSpinner('Ticket not found');
-      console.error(`Ticket #${ticketNumber} not found`);
-      process.exit(1);
-    }
+    const ticketNumber = ticketIdOrNumber;
+    const response = await api.v1TeamsProjectsTicketsByNumberDetail(
+      resolved.team,
+      resolved.project,
+      ticketNumber
+    );
 
     succeedSpinner(`Found ticket #${ticketNumber}`);
-    return found.id;
+    return response.data.id;
   } catch (err) {
-    failSpinner('Failed to lookup ticket');
+    failSpinner('Ticket not found');
     console.error(formatError(err));
     process.exit(1);
   }
@@ -157,10 +153,10 @@ export const updateTicketCommand = new Command('update')
     startSpinner('Updating ticket...');
 
     try {
-      const ticket = await updateTicket(ticketId, request);
+      const response = await api.v1TicketsUpdate(ticketId, request);
       succeedSpinner('Ticket updated');
 
-      printJson({ ticket });
+      printJson({ ticket: response.data });
     } catch (err) {
       failSpinner('Failed to update ticket');
       console.error(formatError(err));

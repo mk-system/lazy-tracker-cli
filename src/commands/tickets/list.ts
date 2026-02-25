@@ -1,12 +1,10 @@
 import { Command } from 'commander';
-import {
-  getMyTickets,
-  getTicketsByTeam,
-  getTicketsByTeamAndProject,
-  type Ticket,
-  type TicketState,
-  type TicketListType,
-} from '../../api/tickets.js';
+import { api } from '../../api/client.js';
+import type {
+  JpMkscLazytrackerApiModelsTicketTicketResponse as Ticket,
+  JpMkscLazytrackerApiModelsCommonTicketStateEnum as TicketState,
+  JpMkscLazytrackerApiModelsCommonTicketListTypeEnum as TicketListType,
+} from '../../api/__generated__/data-contracts.js';
 import { printJson, warn } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -104,24 +102,28 @@ export const listTicketsCommand = new Command('list')
         context: { team?: string; project?: string };
       }> => {
         if (resolved) {
+          const response = await api.v1TeamsProjectsTicketsList(resolved.team, resolved.project);
           return {
-            tickets: await getTicketsByTeamAndProject(resolved.team, resolved.project),
+            tickets: response.data,
             context: { team: resolved.team, project: resolved.project },
           };
         }
         if (options.team && options.project) {
+          const response = await api.v1TeamsProjectsTicketsList(options.team, options.project);
           return {
-            tickets: await getTicketsByTeamAndProject(options.team, options.project),
+            tickets: response.data,
             context: { team: options.team, project: options.project },
           };
         }
         if (options.team) {
+          const response = await api.v1TeamsTicketsList(options.team);
           return {
-            tickets: await getTicketsByTeam(options.team),
+            tickets: response.data,
             context: { team: options.team },
           };
         }
-        return { tickets: await getMyTickets(), context: {} };
+        const response = await api.v1TicketsList();
+        return { tickets: response.data, context: {} };
       })();
 
       const tickets = rawTickets

@@ -1,11 +1,11 @@
 import { Command } from 'commander';
-import {
-  createTicket,
-  type TicketCreateRequest,
-  type TicketType,
-  type TicketState,
-  type TicketListType,
-} from '../../api/tickets.js';
+import { api } from '../../api/client.js';
+import type {
+  JpMkscLazytrackerApiModelsTicketTicketCreateRequest as TicketCreateRequest,
+  JpMkscLazytrackerApiModelsCommonTicketTypeEnum as TicketType,
+  JpMkscLazytrackerApiModelsCommonTicketStateEnum as TicketState,
+  JpMkscLazytrackerApiModelsCommonTicketListTypeEnum as TicketListType,
+} from '../../api/__generated__/data-contracts.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError, CLIError } from '../../utils/errors.js';
@@ -80,13 +80,17 @@ export const createTicketCommand = new Command('create')
         request.releaseDate = options.releaseDate;
       }
 
-      const ticket = await createTicket(resolved.team, resolved.project, request);
+      const response = await api.v1TeamsProjectsTicketsCreate(
+        resolved.team,
+        resolved.project,
+        request
+      );
       succeedSpinner('Ticket created');
 
       printJson({
         team: resolved.team,
         project: resolved.project,
-        ticket,
+        ticket: response.data,
       });
     } catch (err) {
       failSpinner('Failed to create ticket');

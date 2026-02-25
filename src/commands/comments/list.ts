@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { getChatsByTicket } from '../../api/chats.js';
+import { api } from '../../api/client.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -11,7 +11,8 @@ export const listCommentsCommand = new Command('list')
     startSpinner('Fetching comments...');
 
     try {
-      const chats = await getChatsByTicket(ticketId);
+      const response = await api.v1TicketsChatsList(ticketId);
+      const chats = response.data;
       succeedSpinner(`Found ${chats.length} comment(s)`);
 
       printJson({

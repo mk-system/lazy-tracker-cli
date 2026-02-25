@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { getMyTeams, getAllTeams } from '../../api/teams.js';
+import { api } from '../../api/client.js';
 import { printTable, printJson, truncate, type TableColumn } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -12,7 +12,8 @@ export const teamsCommand = new Command('teams')
     startSpinner('Fetching teams...');
 
     try {
-      const teams = options.all ? await getAllTeams() : await getMyTeams();
+      const response = options.all ? await api.v1TeamsList() : await api.v1TeamsMyList();
+      const teams = response.data;
       succeedSpinner(`Found ${teams.length} team(s)`);
 
       if (options.json) {
