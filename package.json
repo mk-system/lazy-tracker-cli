@@ -21,11 +21,13 @@
     "commander": "12.1.0",
     "conf": "12.0.0",
     "dotenv": "17.3.1",
+    "humps": "^2.0.1",
     "open": "10.2.0",
     "ora": "8.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@types/humps": "^2.0.6",
     "@types/node": "^22.0.0",
     "eslint": "^9.21.0",
     "husky": "^9.1.7",

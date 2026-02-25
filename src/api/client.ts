@@ -1,102 +1,83 @@
+import { Api } from './__generated__/Api.js';
 import { getValidAccessToken } from '../auth/manager.js';
 import { getConfig } from '../auth/store.js';
 import { DEFAULT_API_URL } from '../config/constants.js';
 import { APIError, NetworkError } from '../utils/errors.js';
-
-function camelToSnake(str: string): string {
-  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-}
-
-function convertKeysToSnakeCase(obj: unknown): unknown {
-  if (obj === null || obj === undefined) return obj;
-  if (Array.isArray(obj)) return obj.map(convertKeysToSnakeCase);
-  if (typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj as Record<string, unknown>).map(([key, value]) => [
-        camelToSnake(key),
-        convertKeysToSnakeCase(value),
-      ])
-    );
-  }
-  return obj;
-}
-
-export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  body?: unknown;
-  headers?: Record<string, string>;
-  requiresAuth?: boolean;
-}
+import type { RequestParams, ApiConfig } from './__generated__/http-client.js';
+import humps from 'humps';
+const { camelizeKeys, decamelizeKeys } = humps;
 
 function getBaseUrl(): string {
   const config = getConfig();
   return config.apiUrl || DEFAULT_API_URL;
 }
 
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, headers = {}, requiresAuth = true } = options;
-  const baseUrl = getBaseUrl();
-  const url = `${baseUrl}/api/v1${path}`;
-
-  const requestHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...headers,
+const securityWorker: ApiConfig<unknown>['securityWorker'] = async (_securityData) => {
+  const token = await getValidAccessToken();
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   };
+};
 
-  if (requiresAuth) {
-    const token = await getValidAccessToken();
-    requestHeaders['Authorization'] = `Bearer ${token}`;
-  }
-
+async function customFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   try {
-    const response = await fetch(url, {
-      method,
-      headers: requestHeaders,
-      body: body ? JSON.stringify(convertKeysToSnakeCase(body)) : undefined,
-    });
+    // Convert request body from camelCase to snake_case
+    let modifiedInit = init;
+    if (init?.body && typeof init.body === 'string') {
+      try {
+        const parsed = JSON.parse(init.body);
+        const converted = decamelizeKeys(parsed);
+        modifiedInit = { ...init, body: JSON.stringify(converted) };
+      } catch {
+        // Not JSON, use original body
+      }
+    }
+
+    const response = await fetch(input, modifiedInit);
 
     if (!response.ok) {
-      let errorMessage = `Request failed with status ${response.status}`;
-      try {
-        const errorData = (await response.json()) as { message?: string; error?: string };
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch {
-        // Ignore JSON parsing errors
-      }
+      const defaultMessage = `Request failed with status ${response.status}`;
+      const errorMessage = await response
+        .clone()
+        .json()
+        .then((data: { message?: string; error?: string }) => {
+          const camelized = camelizeKeys(data) as { message?: string; error?: string };
+          return camelized.message || camelized.error || defaultMessage;
+        })
+        .catch(() => defaultMessage);
       throw new APIError(errorMessage, response.status);
     }
 
-    if (response.status === 204) {
-      return undefined as T;
+    // Convert response body from snake_case to camelCase
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const data = await response.json();
+      const camelized = camelizeKeys(data);
+      return new Response(JSON.stringify(camelized), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
     }
 
-    return (await response.json()) as T;
+    return response;
   } catch (error) {
     if (error instanceof APIError) throw error;
     throw new NetworkError(`Network error: ${(error as Error).message}`);
   }
 }
 
-export async function get<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T> {
-  return request<T>(path, { ...options, method: 'GET' });
+export const api = new (Api as new (config: ApiConfig<unknown>) => Api)({
+  baseUrl: getBaseUrl(),
+  baseApiParams: { secure: true },
+  securityWorker,
+  customFetch,
+});
+
+export function updateApiBaseUrl(): void {
+  (api as unknown as { baseUrl: string }).baseUrl = getBaseUrl();
 }
 
-export async function post<T>(
-  path: string,
-  body?: unknown,
-  options?: Omit<RequestOptions, 'method' | 'body'>
-): Promise<T> {
-  return request<T>(path, { ...options, method: 'POST', body });
-}
-
-export async function put<T>(
-  path: string,
-  body?: unknown,
-  options?: Omit<RequestOptions, 'method' | 'body'>
-): Promise<T> {
-  return request<T>(path, { ...options, method: 'PUT', body });
-}
-
-export async function del<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T> {
-  return request<T>(path, { ...options, method: 'DELETE' });
-}
+export type { RequestParams };
