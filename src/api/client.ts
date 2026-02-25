@@ -9,6 +9,7 @@ function camelToSnake(str: string): string {
 
 function convertKeysToSnakeCase(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;
+  if (obj instanceof Date) return obj.toISOString();
   if (Array.isArray(obj)) return obj.map(convertKeysToSnakeCase);
   if (typeof obj === 'object') {
     return Object.fromEntries(
