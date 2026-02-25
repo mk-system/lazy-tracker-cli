@@ -60,8 +60,8 @@ import {
   JpMkscLazytrackerApiModelsUserUserResponse,
   JpMkscLazytrackerApiModelsUserUserUpdateRequest,
   JpMkscLazytrackerCoreServicesProjectVelocityHistory,
-} from "./data-contracts";
-import { ContentType, HttpClient, RequestParams } from "./http-client";
+} from "./data-contracts.js";
+import { ContentType, HttpClient, RequestParams } from "./http-client.js";
 
 export class Api<
   SecurityDataType = unknown,
