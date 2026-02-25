@@ -1,6 +1,5 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
-import 'dotenv/config';
 import { program } from '../src/index.js';
 
 program.parse();

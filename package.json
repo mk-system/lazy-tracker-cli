@@ -4,15 +4,21 @@
   "description": "Lazy Tracker CLI - A command-line interface for Lazy Tracker",
   "type": "module",
   "bin": {
-    "lt": "./dist/bin/lt.js"
+    "lt": "./dist/lt"
   },
   "scripts": {
-    "dev": "tsx bin/lt.ts",
-    "build": "tsc",
+    "dev": "bun run bin/lt.ts",
+    "build": "bun build --compile ./bin/lt.ts --outfile dist/lt",
+    "build:macos-arm64": "bun build --compile --target=bun-darwin-arm64 ./bin/lt.ts --outfile dist/lt-macos-arm64",
+    "build:macos-x64": "bun build --compile --target=bun-darwin-x64 ./bin/lt.ts --outfile dist/lt-macos-x64",
+    "build:linux-x64": "bun build --compile --target=bun-linux-x64 ./bin/lt.ts --outfile dist/lt-linux-x64",
+    "build:linux-arm64": "bun build --compile --target=bun-linux-arm64 ./bin/lt.ts --outfile dist/lt-linux-arm64",
+    "build:windows-x64": "bun build --compile --target=bun-windows-x64 ./bin/lt.ts --outfile dist/lt-windows-x64.exe",
+    "build:all": "bun run build:macos-arm64 && bun run build:macos-x64 && bun run build:linux-x64 && bun run build:linux-arm64 && bun run build:windows-x64",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "generate-api": "rimraf src/api/__generated__ && tsx src/api/lib/generator.ts",
+    "generate-api": "rimraf src/api/__generated__ && bun run src/api/lib/generator.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -20,27 +26,22 @@
     "cli-table3": "0.6.5",
     "commander": "12.1.0",
     "conf": "12.0.0",
-    "dotenv": "17.3.1",
     "humps": "^2.0.1",
     "open": "10.2.0",
     "ora": "8.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@types/bun": "^1.2.5",
     "@types/humps": "^2.0.6",
-    "@types/node": "^22.0.0",
     "eslint": "^9.21.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.5.2",
     "rimraf": "^6.0.1",
     "swagger-typescript-api": "^13.0.23",
-    "tsx": "^4.19.3",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.53.1"
-  },
-  "engines": {
-    "node": ">=24.0.0"
   },
   "files": [
     "dist"
