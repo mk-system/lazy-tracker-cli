@@ -56,13 +56,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     });
 
     if (!response.ok) {
-      let errorMessage = `Request failed with status ${response.status}`;
-      try {
-        const errorData = (await response.json()) as { message?: string; error?: string };
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch {
-        // Ignore JSON parsing errors
-      }
+      const defaultMessage = `Request failed with status ${response.status}`;
+      const errorMessage = await response
+        .json()
+        .then(
+          (data: { message?: string; error?: string }) =>
+            data.message || data.error || defaultMessage
+        )
+        .catch(() => defaultMessage);
       throw new APIError(errorMessage, response.status);
     }
 

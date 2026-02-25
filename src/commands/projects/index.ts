@@ -13,14 +13,11 @@ export const projectsCommand = new Command('projects')
     startSpinner('Fetching projects...');
 
     try {
-      let projects;
-      if (options.recent) {
-        projects = await getRecentProjects();
-      } else if (options.team) {
-        projects = await getProjectsByTeamKey(options.team);
-      } else {
-        projects = await getAllProjects();
-      }
+      const projects = await (options.recent
+        ? getRecentProjects()
+        : options.team
+          ? getProjectsByTeamKey(options.team)
+          : getAllProjects());
 
       succeedSpinner(`Found ${projects.length} project(s)`);
 

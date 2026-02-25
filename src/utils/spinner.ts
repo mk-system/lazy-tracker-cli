@@ -1,47 +1,47 @@
 import ora, { type Ora } from 'ora';
 
-let currentSpinner: Ora | null = null;
+const state: { current: Ora | null } = { current: null };
 
 export function startSpinner(text: string): Ora {
-  if (currentSpinner) {
-    currentSpinner.stop();
+  if (state.current) {
+    state.current.stop();
   }
-  currentSpinner = ora(text).start();
-  return currentSpinner;
+  state.current = ora(text).start();
+  return state.current;
 }
 
 export function stopSpinner(spinner?: Ora): void {
-  const s = spinner || currentSpinner;
+  const s = spinner || state.current;
   if (s) {
     s.stop();
-    if (s === currentSpinner) {
-      currentSpinner = null;
+    if (s === state.current) {
+      state.current = null;
     }
   }
 }
 
 export function succeedSpinner(text: string, spinner?: Ora): void {
-  const s = spinner || currentSpinner;
+  const s = spinner || state.current;
   if (s) {
     s.succeed(text);
-    if (s === currentSpinner) {
-      currentSpinner = null;
+    if (s === state.current) {
+      state.current = null;
     }
   }
 }
 
 export function failSpinner(text: string, spinner?: Ora): void {
-  const s = spinner || currentSpinner;
+  const s = spinner || state.current;
   if (s) {
     s.fail(text);
-    if (s === currentSpinner) {
-      currentSpinner = null;
+    if (s === state.current) {
+      state.current = null;
     }
   }
 }
 
 export function updateSpinner(text: string, spinner?: Ora): void {
-  const s = spinner || currentSpinner;
+  const s = spinner || state.current;
   if (s) {
     s.text = text;
   }

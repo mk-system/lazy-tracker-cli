@@ -18,7 +18,7 @@ export const loginCommand = new Command('login')
     console.log(chalk.bold('Logging in to Lazy Tracker...'));
     console.log();
 
-    let spinner: ReturnType<typeof startSpinner> | null = null;
+    const spinnerState: { instance: ReturnType<typeof startSpinner> | null } = { instance: null };
 
     try {
       await startDeviceFlow({
@@ -30,28 +30,28 @@ export const loginCommand = new Command('login')
           console.log('Opening browser to authorize...');
           console.log(chalk.dim(`If the browser doesn't open, visit: ${verificationUri}`));
           console.log();
-          spinner = startSpinner('Waiting for authorization...');
+          spinnerState.instance = startSpinner('Waiting for authorization...');
         },
         onPolling: () => {
           // Keep spinner running
         },
         onSuccess: () => {
-          if (spinner) {
+          if (spinnerState.instance) {
             succeedSpinner('Authorization successful!');
           }
           console.log();
           success('You are now logged in to Lazy Tracker.');
         },
         onError: (err) => {
-          if (spinner) {
+          if (spinnerState.instance) {
             failSpinner('Authorization failed');
           }
           outputError(err.message);
         },
       });
     } catch {
-      if (spinner) {
-        stopSpinner(spinner);
+      if (spinnerState.instance) {
+        stopSpinner(spinnerState.instance);
       }
       process.exit(1);
     }

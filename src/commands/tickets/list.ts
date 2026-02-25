@@ -99,31 +99,34 @@ export const listTicketsCommand = new Command('list')
     startSpinner('Fetching tickets...');
 
     try {
-      let tickets: Ticket[];
-      let context: { team?: string; project?: string } = {};
+      const { tickets: rawTickets, context } = await (async (): Promise<{
+        tickets: Ticket[];
+        context: { team?: string; project?: string };
+      }> => {
+        if (resolved) {
+          return {
+            tickets: await getTicketsByTeamAndProject(resolved.team, resolved.project),
+            context: { team: resolved.team, project: resolved.project },
+          };
+        }
+        if (options.team && options.project) {
+          return {
+            tickets: await getTicketsByTeamAndProject(options.team, options.project),
+            context: { team: options.team, project: options.project },
+          };
+        }
+        if (options.team) {
+          return {
+            tickets: await getTicketsByTeam(options.team),
+            context: { team: options.team },
+          };
+        }
+        return { tickets: await getMyTickets(), context: {} };
+      })();
 
-      if (resolved) {
-        tickets = await getTicketsByTeamAndProject(resolved.team, resolved.project);
-        context = { team: resolved.team, project: resolved.project };
-      } else if (options.team && options.project) {
-        tickets = await getTicketsByTeamAndProject(options.team, options.project);
-        context = { team: options.team, project: options.project };
-      } else if (options.team) {
-        tickets = await getTicketsByTeam(options.team);
-        context = { team: options.team };
-      } else {
-        tickets = await getMyTickets();
-      }
-
-      if (options.state) {
-        const state = options.state as TicketState;
-        tickets = tickets.filter((t) => t.state === state);
-      }
-
-      if (options.listType) {
-        const listType = options.listType as TicketListType;
-        tickets = tickets.filter((t) => t.listType === listType);
-      }
+      const tickets = rawTickets
+        .filter((t) => !options.state || t.state === (options.state as TicketState))
+        .filter((t) => !options.listType || t.listType === (options.listType as TicketListType));
 
       succeedSpinner(`Found ${tickets.length} ticket(s)`);
 

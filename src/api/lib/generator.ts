@@ -22,14 +22,12 @@ async function main() {
   const generatedDirPath = path.resolve(process.cwd(), 'src/api/__generated__');
   const files = await fs.readdir(generatedDirPath);
 
-  let importUrl = '';
-  files.forEach((file: string) => {
-    if (file !== 'index.ts' && file.endsWith('.ts')) {
-      importUrl += `export * from "./${file.replace('.ts', '.js')}"\n`;
-    }
-  });
+  const importUrl = files
+    .filter((file: string) => file !== 'index.ts' && file.endsWith('.ts'))
+    .map((file: string) => `export * from "./${file.replace('.ts', '.js')}"`)
+    .join('\n');
 
-  await fs.writeFile(outputFilename, importUrl);
+  await fs.writeFile(outputFilename, importUrl ? importUrl + '\n' : '');
 }
 
 main().catch((err) => {

@@ -24,6 +24,52 @@ async function confirm(message: string): Promise<boolean> {
   });
 }
 
+async function resolveTicket(
+  ticketIdOrNumber: string,
+  options: { team?: string; project?: string }
+): Promise<{ id: string; title?: string }> {
+  if (isTicketNumber(ticketIdOrNumber)) {
+    const resolved = resolveTeamProject({ team: options.team, project: options.project });
+    if (!resolved) {
+      console.error(
+        'Team and project are required for ticket number lookup. Create .lazy-tracker.json or specify --team and --project options.'
+      );
+      process.exit(1);
+    }
+
+    startSpinner('Looking up ticket...');
+    try {
+      const tickets = await getTicketsByTeamAndProject(resolved.team, resolved.project);
+      const ticketNumber = parseInt(ticketIdOrNumber, 10);
+      const found = tickets.find((t) => t.ticketNumber === ticketNumber);
+
+      if (!found) {
+        failSpinner('Ticket not found');
+        console.error(`Ticket #${ticketNumber} not found`);
+        process.exit(1);
+      }
+
+      succeedSpinner(`Found ticket #${ticketNumber}`);
+      return { id: found.id, title: found.title };
+    } catch (err) {
+      failSpinner('Failed to lookup ticket');
+      console.error(formatError(err));
+      process.exit(1);
+    }
+  }
+
+  startSpinner('Fetching ticket details...');
+  try {
+    const ticket = await getTicketById(ticketIdOrNumber);
+    succeedSpinner('Ticket found');
+    return { id: ticketIdOrNumber, title: ticket.title };
+  } catch (err) {
+    failSpinner('Failed to fetch ticket');
+    console.error(formatError(err));
+    process.exit(1);
+  }
+}
+
 export const deleteTicketCommand = new Command('delete')
   .description('Delete a ticket')
   .argument('<ticketIdOrNumber>', 'Ticket ID (UUID) or ticket number')
@@ -31,50 +77,7 @@ export const deleteTicketCommand = new Command('delete')
   .option('-p, --project <key>', 'Project key (required for ticket number)')
   .option('-f, --force', 'Skip confirmation')
   .action(async (ticketIdOrNumber, options) => {
-    let ticketId = ticketIdOrNumber;
-    let ticketTitle: string | undefined;
-
-    if (isTicketNumber(ticketIdOrNumber)) {
-      const resolved = resolveTeamProject({ team: options.team, project: options.project });
-      if (!resolved) {
-        console.error(
-          'Team and project are required for ticket number lookup. Create .lazy-tracker.json or specify --team and --project options.'
-        );
-        process.exit(1);
-      }
-
-      startSpinner('Looking up ticket...');
-      try {
-        const tickets = await getTicketsByTeamAndProject(resolved.team, resolved.project);
-        const ticketNumber = parseInt(ticketIdOrNumber, 10);
-        const found = tickets.find((t) => t.ticketNumber === ticketNumber);
-
-        if (!found) {
-          failSpinner('Ticket not found');
-          console.error(`Ticket #${ticketNumber} not found`);
-          process.exit(1);
-        }
-
-        ticketId = found.id;
-        ticketTitle = found.title;
-        succeedSpinner(`Found ticket #${ticketNumber}`);
-      } catch (err) {
-        failSpinner('Failed to lookup ticket');
-        console.error(formatError(err));
-        process.exit(1);
-      }
-    } else {
-      startSpinner('Fetching ticket details...');
-      try {
-        const ticket = await getTicketById(ticketId);
-        ticketTitle = ticket.title;
-        succeedSpinner('Ticket found');
-      } catch (err) {
-        failSpinner('Failed to fetch ticket');
-        console.error(formatError(err));
-        process.exit(1);
-      }
-    }
+    const { id: ticketId, title: ticketTitle } = await resolveTicket(ticketIdOrNumber, options);
 
     if (!options.force) {
       const displayTitle = ticketTitle ? ` "${ticketTitle}"` : '';

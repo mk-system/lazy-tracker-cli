@@ -18,48 +18,40 @@ const CONFIG_FILENAME = '.lazy-tracker.json';
  * カレントディレクトリから上位に向かって .lazy-tracker.json を探索し、読み込む
  * team, project のいずれかが設定されていれば部分的に返す
  */
+function tryReadConfig(configPath: string): PartialProjectConfig | undefined {
+  if (!existsSync(configPath)) return undefined;
+  try {
+    const content = readFileSync(configPath, 'utf-8');
+    const parsed = JSON.parse(content) as PartialProjectConfig;
+    if (typeof parsed.team === 'string' || typeof parsed.project === 'string') {
+      return {
+        team: typeof parsed.team === 'string' ? parsed.team : undefined,
+        project: typeof parsed.project === 'string' ? parsed.project : undefined,
+      };
+    }
+  } catch {
+    // 読み込みエラーは無視
+  }
+  return undefined;
+}
+
+function getAncestorDirs(startDir: string): string[] {
+  const dirs: string[] = [];
+  const addDir = (dir: string): void => {
+    dirs.push(dir);
+    const parent = dirname(dir);
+    if (parent !== dir) addDir(parent);
+  };
+  addDir(startDir);
+  return dirs;
+}
+
 export function findProjectConfig(): PartialProjectConfig | undefined {
-  let dir = process.cwd();
-  const root = dirname(dir);
-
-  while (dir !== root) {
-    const configPath = resolve(dir, CONFIG_FILENAME);
-    if (existsSync(configPath)) {
-      try {
-        const content = readFileSync(configPath, 'utf-8');
-        const parsed = JSON.parse(content) as PartialProjectConfig;
-
-        if (typeof parsed.team === 'string' || typeof parsed.project === 'string') {
-          return {
-            team: typeof parsed.team === 'string' ? parsed.team : undefined,
-            project: typeof parsed.project === 'string' ? parsed.project : undefined,
-          };
-        }
-      } catch {
-        // 読み込みエラーは無視して続行
-      }
-    }
-    dir = dirname(dir);
+  const dirs = getAncestorDirs(process.cwd());
+  for (const dir of dirs) {
+    const config = tryReadConfig(resolve(dir, CONFIG_FILENAME));
+    if (config) return config;
   }
-
-  // ルートディレクトリでも確認
-  const rootConfigPath = resolve(dir, CONFIG_FILENAME);
-  if (existsSync(rootConfigPath)) {
-    try {
-      const content = readFileSync(rootConfigPath, 'utf-8');
-      const parsed = JSON.parse(content) as PartialProjectConfig;
-
-      if (typeof parsed.team === 'string' || typeof parsed.project === 'string') {
-        return {
-          team: typeof parsed.team === 'string' ? parsed.team : undefined,
-          project: typeof parsed.project === 'string' ? parsed.project : undefined,
-        };
-      }
-    } catch {
-      // 読み込みエラーは無視
-    }
-  }
-
   return undefined;
 }
 
