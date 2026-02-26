@@ -4,16 +4,34 @@ Lazy Tracker をターミナルから操作するためのCLI
 
 ## インストール
 
+### シングルバイナリ（推奨）
+
+[Releases](https://github.com/mk-system/lazy-tracker-cli/releases) からプラットフォームに合ったバイナリをダウンロード:
+
 ```bash
-npm install -g github:mk-system/lazy-tracker-cli
+# macOS (Apple Silicon)
+curl -L https://github.com/mk-system/lazy-tracker-cli/releases/latest/download/lt-macos-arm64 -o lt
+chmod +x lt
+sudo mv lt /usr/local/bin/
+
+# macOS (Intel)
+curl -L https://github.com/mk-system/lazy-tracker-cli/releases/latest/download/lt-macos-x64 -o lt
+chmod +x lt
+sudo mv lt /usr/local/bin/
+
+# Linux (x64)
+curl -L https://github.com/mk-system/lazy-tracker-cli/releases/latest/download/lt-linux-x64 -o lt
+chmod +x lt
+sudo mv lt /usr/local/bin/
 ```
 
-または
+### ソースからビルド
 
 ```bash
 git clone https://github.com/mk-system/lazy-tracker-cli.git
 cd lazy-tracker-cli
-npm install && npm run build && npm install -g .
+bun install && bun run build
+sudo cp dist/lt /usr/local/bin/
 ```
 
 ## セットアップ
@@ -185,11 +203,6 @@ lt --no-color tickets list
 | ------------ | ------- | ------------------------------ |
 | `LT_API_URL` | API URL | `https://api.lazy-tracker.com` |
 
-```bash
-# 開発環境で使用する場合
-LT_API_URL=http://localhost:8080 lt tickets list
-```
-
 ## 認証情報の保存場所
 
 認証トークンは以下の場所に**平文で**保存される:
@@ -199,3 +212,36 @@ LT_API_URL=http://localhost:8080 lt tickets list
 - Windows: `%APPDATA%/lazy-tracker-cli/`
 
 共有マシンでの使用時はアカウント保護に注意すること。ログアウト (`lt auth logout`) でトークンは削除される。
+
+## 開発
+
+[Bun](https://bun.sh/) 1.x を使用。
+
+```bash
+# 依存関係インストール
+bun install
+
+# 開発実行
+bun run dev
+
+# ビルド（ローカル用シングルバイナリ）
+bun run build
+
+# リリース向け（全プラットフォーム）
+bun run build:all
+
+# 個別ビルド（必要な場合のみ）
+bun run build:macos-arm64
+bun run build:macos-x64
+bun run build:linux-x64
+bun run build:linux-arm64
+bun run build:windows-x64
+
+# API クライアント再生成（バックエンド起動必須）
+bun run generate-api
+
+# Lint / Format
+bun run lint
+bun run format:check
+bun run format
+```
