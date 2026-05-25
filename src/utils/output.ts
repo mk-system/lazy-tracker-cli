@@ -21,8 +21,18 @@ export function dim(message: string): void {
   console.log(chalk.dim(message));
 }
 
-export function printJson(data: unknown): void {
-  console.log(JSON.stringify(data, null, 2));
+export async function printJson(data: unknown): Promise<void> {
+  // Workaround for Bun bug: chalk/ora access tty.isatty(1) at import time,
+  // which causes console.log output to be truncated when stdout is piped.
+  // Using process.stdout.write with drain ensures full flush before exit.
+  const output = JSON.stringify(data, null, 2) + '\n';
+  return new Promise<void>((resolve) => {
+    if (process.stdout.write(output)) {
+      resolve();
+    } else {
+      process.stdout.once('drain', resolve);
+    }
+  });
 }
 
 export interface TableColumn {

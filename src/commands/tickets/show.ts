@@ -50,7 +50,7 @@ export const showTicketCommand = new Command('show')
       const { ticket, context } = await fetchTicket(ticketIdOrNumber, options);
       succeedSpinner('Ticket loaded');
 
-      printJson({
+      await printJson({
         ...context,
         ticket,
       });
