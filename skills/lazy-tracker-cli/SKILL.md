@@ -112,6 +112,29 @@ lt tickets list --table --columns ticketNumber,title,state  # カラム指定
 
 利用可能なカラム: `id`, `ticketNumber`, `title`, `state`, `listType`, `point`, `projectKey`, `teamKey`, `ticketType`
 
+### スキル管理
+
+コーディングエージェントに本スキルをインストールする。対応エージェント: `claude-code`, `codex`, `copilot`, `cursor`
+
+```bash
+# スキルの内容を表示
+lt skills
+
+# エージェントにインストール（対象リポジトリのルートで実行）
+lt skills install --agent claude-code
+
+# インストール内容を事前確認
+lt skills install --agent claude-code --dry-run
+
+# アンインストール
+lt skills uninstall --agent claude-code
+```
+
+インストール先はエージェントごとに異なる:
+
+- `claude-code`: `.claude/skills/lazy-tracker-cli/SKILL.md`
+- `codex`, `copilot`, `cursor`: `.agents/skills/lazy-tracker-cli/SKILL.md`
+
 ### グローバルオプション
 
 ```bash
