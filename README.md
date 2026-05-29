@@ -179,24 +179,43 @@ lt comments delete <chat-id> --force
 # スキルの内容を表示
 lt skills
 
-# エージェントにインストール（対象リポジトリのルートで実行）
+# 対話形式でインストール（エージェント・スコープを選択）
+lt skills install
+
+# user スコープにインストール（デフォルト）
 lt skills install --agent claude-code
+
+# project スコープにインストール（git root 配下）
+lt skills install --agent claude-code --project
+
+# カスタムパスにインストール
+lt skills install --agent claude-code --dir /path/to/dir
 
 # インストール内容を事前確認
 lt skills install --agent claude-code --dry-run
 
 # アンインストール
 lt skills uninstall --agent claude-code
+
+# アンインストール内容を事前確認
+lt skills uninstall --agent claude-code --dry-run
 ```
 
-対応エージェントとインストール先:
+**スコープ:**
 
-| エージェント  | インストール先                             |
-| ------------- | ------------------------------------------ |
-| `claude-code` | `.claude/skills/lazy-tracker-cli/SKILL.md` |
-| `codex`       | `.agents/skills/lazy-tracker-cli/SKILL.md` |
-| `copilot`     | `.agents/skills/lazy-tracker-cli/SKILL.md` |
-| `cursor`      | `.agents/skills/lazy-tracker-cli/SKILL.md` |
+| スコープ  | インストール先                                     | 用途                               |
+| --------- | -------------------------------------------------- | ---------------------------------- |
+| `user`    | `~/<skillsDir>/lazy-tracker-cli/SKILL.md`          | 全プロジェクトで共有（デフォルト） |
+| `project` | `<git root>/<skillsDir>/lazy-tracker-cli/SKILL.md` | リポジトリ固有                     |
+
+エージェントごとの `<skillsDir>`:
+
+| エージェント  | skillsDir        |
+| ------------- | ---------------- |
+| `claude-code` | `.claude/skills` |
+| `codex`       | `.agents/skills` |
+| `copilot`     | `.agents/skills` |
+| `cursor`      | `.agents/skills` |
 
 ### その他
 

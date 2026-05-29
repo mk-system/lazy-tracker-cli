@@ -120,20 +120,35 @@ lt tickets list --table --columns ticketNumber,title,state  # カラム指定
 # スキルの内容を表示
 lt skills
 
-# エージェントにインストール（対象リポジトリのルートで実行）
+# 対話形式（エージェント・インストール先を選択）
+lt skills install
+
+# user スコープにインストール（デフォルト: ~/.<agent>/skills/...）
 lt skills install --agent claude-code
+
+# project スコープにインストール（git root 配下）
+lt skills install --agent claude-code --project
+
+# カスタムパスにインストール
+lt skills install --agent claude-code --dir /path/to/dir
 
 # インストール内容を事前確認
 lt skills install --agent claude-code --dry-run
 
-# アンインストール
+# アンインストール（user スコープ）
 lt skills uninstall --agent claude-code
+
+# project スコープからアンインストール
+lt skills uninstall --agent claude-code --project
+
+# アンインストール内容を事前確認
+lt skills uninstall --agent claude-code --dry-run
 ```
 
-インストール先はエージェントごとに異なる:
+**スコープ:**
 
-- `claude-code`: `.claude/skills/lazy-tracker-cli/SKILL.md`
-- `codex`, `copilot`, `cursor`: `.agents/skills/lazy-tracker-cli/SKILL.md`
+- **user**（デフォルト）: `~/<skillsDir>/lazy-tracker-cli/SKILL.md` — 全プロジェクトで共有
+- **project**: `<git root>/<skillsDir>/lazy-tracker-cli/SKILL.md` — リポジトリ固有
 
 ### グローバルオプション
 
