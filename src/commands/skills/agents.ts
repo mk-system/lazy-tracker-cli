@@ -15,6 +15,10 @@ export const AGENTS = {
 
 export type AgentName = keyof typeof AGENTS;
 
+export function isAgentName(name: string): name is AgentName {
+  return name in AGENTS;
+}
+
 export const AGENT_NAMES = Object.keys(AGENTS) as AgentName[];
 export const AGENT_NAMES_STR = AGENT_NAMES.join(', ');
 

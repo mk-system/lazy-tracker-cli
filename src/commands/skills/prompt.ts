@@ -16,8 +16,11 @@ function question(prompt: string): Promise<string> {
     input: process.stdin,
     output: process.stdout,
   });
-  return new Promise((res) => {
+  return new Promise((res, rej) => {
+    const onClose = () => rej(new Error('Input stream closed'));
+    rl.on('close', onClose);
     rl.question(prompt, (answer) => {
+      rl.off('close', onClose);
       rl.close();
       res(answer.trim());
     });

@@ -1,16 +1,10 @@
 import { Command } from 'commander';
 import { existsSync, readdirSync, rmSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { success, info, warn, error } from '../../utils/output.js';
-import {
-  AGENTS,
-  AGENT_NAMES_STR,
-  SKILL_FILE_NAME,
-  resolveInstallDir,
-  type AgentName,
-  type Scope,
-} from './agents.js';
-import { isInteractive, selectAgent, selectScope, confirm } from './prompt.js';
+import { success, info, warn } from '../../utils/output.js';
+import { AGENT_NAMES_STR, SKILL_FILE_NAME, resolveInstallDir } from './agents.js';
+import { isInteractive, confirm } from './prompt.js';
+import { resolveAgent, resolveScope } from './resolve.js';
 
 export const uninstallCommand = new Command('uninstall')
   .description('Remove CLI skills for a coding agent')
@@ -31,15 +25,16 @@ export const uninstallCommand = new Command('uninstall')
       return;
     }
 
+    if (!existsSync(skillPath)) {
+      info(`No skill file found at ${skillPath}`);
+      return;
+    }
+
     if (options.dryRun) {
-      if (existsSync(skillPath)) {
-        info(`Would remove: ${skillPath}`);
-        const entries = readdirSync(installDir);
-        if (entries.length === 1 && entries[0] === SKILL_FILE_NAME) {
-          info(`Would remove directory: ${installDir}`);
-        }
-      } else {
-        info(`No skill file found at ${skillPath}`);
+      info(`Would remove: ${skillPath}`);
+      const entries = readdirSync(installDir);
+      if (entries.length === 1 && entries[0] === SKILL_FILE_NAME) {
+        info(`Would remove directory: ${installDir}`);
       }
       return;
     }
@@ -54,10 +49,8 @@ export const uninstallCommand = new Command('uninstall')
 
     const entries = readdirSync(installDir);
     if (entries.length > 1 || (entries.length === 1 && entries[0] !== SKILL_FILE_NAME)) {
-      if (existsSync(skillPath)) {
-        unlinkSync(skillPath);
-        success(`Removed ${skillPath}`);
-      }
+      unlinkSync(skillPath);
+      success(`Removed ${skillPath}`);
       warn(`Directory ${installDir} contains other files, kept intact`);
       return;
     }
@@ -65,37 +58,3 @@ export const uninstallCommand = new Command('uninstall')
     rmSync(installDir, { recursive: true, force: true });
     success(`Removed ${installDir}`);
   });
-
-async function resolveAgent(agentOption?: string): Promise<AgentName> {
-  if (agentOption) {
-    const config = AGENTS[agentOption as AgentName];
-    if (!config) {
-      error(`Unknown agent: ${agentOption}`);
-      console.error(`Valid agents: ${AGENT_NAMES_STR}`);
-      process.exit(1);
-    }
-    return agentOption as AgentName;
-  }
-
-  if (!isInteractive()) {
-    error('--agent is required in non-interactive mode');
-    console.error(`Valid agents: ${AGENT_NAMES_STR}`);
-    process.exit(1);
-  }
-
-  return selectAgent();
-}
-
-async function resolveScope(
-  agent: AgentName,
-  options: { project?: boolean; dir?: string },
-  agentProvidedViaFlag: boolean
-): Promise<{ scope: Scope; customDir?: string }> {
-  if (options.dir) return { scope: 'user', customDir: options.dir };
-  if (options.project) return { scope: 'project' };
-
-  if (agentProvidedViaFlag) return { scope: 'user' };
-
-  const result = await selectScope(agent);
-  return { scope: result.scope, customDir: result.dir };
-}
