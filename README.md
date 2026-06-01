@@ -171,6 +171,52 @@ lt comments delete <chat-id>
 lt comments delete <chat-id> --force
 ```
 
+### スキル（コーディングエージェント連携）
+
+`lt skills` コマンドで、コーディングエージェント（Claude Code, Codex, Copilot, Cursor）に `lt` を利用したチケット管理のスキルをインストールすることができる。具体的には、コマンドの使い方やチケット駆動開発のワークフローを理解できるようになる。
+
+```bash
+# スキルの内容を表示
+lt skills
+
+# 対話形式でインストール（エージェント・スコープを選択）
+lt skills install
+
+# user スコープにインストール（デフォルト）
+lt skills install --agent claude-code
+
+# project スコープにインストール（git root 配下）
+lt skills install --agent claude-code --project
+
+# カスタムパスにインストール
+lt skills install --agent claude-code --dir /path/to/dir
+
+# インストール内容を事前確認
+lt skills install --agent claude-code --dry-run
+
+# アンインストール
+lt skills uninstall --agent claude-code
+
+# アンインストール内容を事前確認
+lt skills uninstall --agent claude-code --dry-run
+```
+
+**スコープ:**
+
+| スコープ  | インストール先                                     | 用途                               |
+| --------- | -------------------------------------------------- | ---------------------------------- |
+| `user`    | `~/<skillsDir>/lazy-tracker-cli/SKILL.md`          | 全プロジェクトで共有（デフォルト） |
+| `project` | `<git root>/<skillsDir>/lazy-tracker-cli/SKILL.md` | リポジトリ固有                     |
+
+エージェントごとの `<skillsDir>`:
+
+| エージェント  | skillsDir        |
+| ------------- | ---------------- |
+| `claude-code` | `.claude/skills` |
+| `codex`       | `.agents/skills` |
+| `copilot`     | `.agents/skills` |
+| `cursor`      | `.agents/skills` |
+
 ### その他
 
 ```bash
