@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -28,7 +28,23 @@ export const SKILL_DIR_NAME = 'lazy-tracker-cli';
 export const SKILL_FILE_NAME = 'SKILL.md';
 
 export function findGitRoot(dir: string): string | null {
-  if (existsSync(resolve(dir, '.git'))) return dir;
+  const gitPath = resolve(dir, '.git');
+  if (existsSync(gitPath)) {
+    const stat = statSync(gitPath);
+    if (stat.isDirectory()) return dir;
+    // worktree: .git is a file containing "gitdir: <path>"
+    if (stat.isFile()) {
+      const content = readFileSync(gitPath, 'utf-8').trim();
+      const match = content.match(/^gitdir:\s*(.+)$/);
+      if (match) {
+        const gitdir = resolve(dir, match[1]);
+        const realGitDir = resolve(gitdir, '..', '..');
+        if (existsSync(realGitDir) && statSync(realGitDir).isDirectory()) {
+          return dirname(realGitDir);
+        }
+      }
+    }
+  }
   const parent = dirname(dir);
   return parent === dir ? null : findGitRoot(parent);
 }
