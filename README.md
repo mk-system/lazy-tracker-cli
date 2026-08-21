@@ -250,16 +250,6 @@ lt --no-color tickets list
 | ------------ | ------- | ------------------------------ |
 | `LT_API_URL` | API URL | `https://api.lazy-tracker.com` |
 
-## 認証情報の保存場所
-
-認証トークンは以下の場所に**平文で**保存される:
-
-- Linux: `~/.config/lazy-tracker-cli/`
-- Mac: `~/Library/Preferences/lazy-tracker-cli/`
-- Windows: `%APPDATA%/lazy-tracker-cli/`
-
-共有マシンでの使用時はアカウント保護に注意すること。ログアウト (`lt auth logout`) でトークンは削除される。
-
 ## 開発
 
 [Bun](https://bun.sh/) 1.x を使用。

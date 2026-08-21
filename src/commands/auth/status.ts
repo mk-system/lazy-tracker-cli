@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { getTokens, getConfig, getStorePath } from '../../auth/store.js';
+import { getTokens, getConfig, getStorePath, isUsingKeychain } from '../../auth/store.js';
 import { isTokenExpired } from '../../auth/manager.js';
 import { success, error as outputError, info, dim } from '../../utils/output.js';
 
@@ -23,15 +23,24 @@ export const statusCommand = new Command('status')
 
     const expired = isTokenExpired();
     const expiresAt = new Date(tokens.expiresAt);
+    const refreshExpired = tokens.refreshTokenExpiresAt
+      ? Date.now() >= tokens.refreshTokenExpiresAt
+      : false;
 
-    if (expired) {
+    if (refreshExpired) {
+      console.log(chalk.red('✗'), 'Session expired. Run `lt auth login` to re-authenticate.');
+    } else if (expired) {
       console.log(chalk.yellow('!'), 'Token expired (will refresh on next request)');
     } else {
       success('Authenticated');
     }
 
     console.log();
-    console.log('  Token expires:', expiresAt.toLocaleString());
+    console.log('  Access token expires:', expiresAt.toLocaleString());
+    if (tokens.refreshTokenExpiresAt) {
+      const refreshExpiresAt = new Date(tokens.refreshTokenExpiresAt);
+      console.log('  Refresh token expires:', refreshExpiresAt.toLocaleString());
+    }
     console.log('  Scopes:', tokens.scope);
 
     if (config.apiUrl) {
@@ -39,5 +48,8 @@ export const statusCommand = new Command('status')
     }
 
     console.log();
+    if (isUsingKeychain()) {
+      dim('Token storage: macOS Keychain');
+    }
     dim(`Config stored at: ${getStorePath()}`);
   });
