@@ -15,11 +15,6 @@ Lazy Tracker（プロジェクト管理 SaaS、mk-system 開発。社内利用�
 - team/project の解決は CLI オプション → リポジトリ直下の `.lazy-tracker.json` → グローバル設定（`conf` パッケージ、OS 標準の設定ディレクトリ）の優先順位でマージされる（`README.md` team/project の解決優先順位節）
 - `.lazy-tracker.json`（プロジェクトルートに置かれ、リポジトリに commit される想定のファイル）が読み取るのは team/project のみ。`apiUrl` は対象外（`src/config/project.ts` の `PartialProjectConfig` 型を参照）— 悪意あるコミットでこのファイルを書き換えても、リクエスト送信先（ひいては Bearer token の送り先）はハイジャックできない。`apiUrl` の指定元は CLI オプション / `LT_API_URL` 環境変数 / グローバル設定のみ
 
-## 過去に実際に起きた問題
-
-- PR#3（マージ済み）: JSON レスポンスの camelCase/snake_case 変換ミスで表示が誤っていた。また Bun 固有の既知バグ（`tty.isatty(1)` 呼び出し後、`console.log` の内容が flush される前にプロセスが終了する）により JSON パイプ出力が欠落することがあった → `process.stdout.write` + flush 待ちへ変更して対応
-- mainブランチ時点（2026-08-29 確認）で、トークンの期限切れ検知・401 応答時のローカル状態同期に関する課題が未解決（PR#5 が対応を提案中・未マージ）。PR#5 がマージされたら本記述は無効
-
 ## システム性質
 
 - 認証済み個人ユーザー（mk-system の開発者 + 外部顧客企業のユーザー）が使う CLI ツール。CLI 自身は外部公開された Web エンドポイントを持たない — 実行時の攻撃面はローカルファイルシステム（保存されたトークン）とローカル-API 間の通信に限られる
