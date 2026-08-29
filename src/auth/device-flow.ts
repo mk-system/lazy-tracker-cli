@@ -1,5 +1,6 @@
 import open from 'open';
 import { setTokens, type TokenData, getConfig, isUsingKeychain } from './store.js';
+import { KeychainError } from './keychain.js';
 import {
   DEFAULT_API_URL,
   CLIENT_ID,
@@ -147,6 +148,9 @@ export async function pollForToken(
       }
     } catch (error) {
       if (error instanceof AuthenticationError) throw error;
+      // setTokens() above can fail with a KeychainError (e.g. Keychain locked)
+      // that has nothing to do with the network — don't relabel it as one.
+      if (error instanceof KeychainError) throw error;
       throw new NetworkError(`Failed to poll for token: ${(error as Error).message}`);
     }
   };

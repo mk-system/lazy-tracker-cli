@@ -9,11 +9,6 @@ import {
 import { TOKEN_EXPIRY_BUFFER_MS, DEFAULT_API_URL, CLIENT_ID } from '../config/constants.js';
 import { AuthenticationError } from '../utils/errors.js';
 
-export function isAuthenticated(): boolean {
-  const tokens = getTokens();
-  return tokens !== undefined;
-}
-
 export async function ensureLoginable(): Promise<boolean> {
   const tokens = getTokens();
   if (!tokens) return true;
@@ -23,8 +18,13 @@ export async function ensureLoginable(): Promise<boolean> {
   try {
     await refreshAccessToken(tokens.refreshToken);
     return false;
-  } catch {
-    return true;
+  } catch (error) {
+    // Only a confirmed-invalid refresh token means the user actually needs
+    // to go through the device flow again. A network blip or a Keychain
+    // failure isn't proof the session is invalid — surface those instead of
+    // silently forcing a fresh login.
+    if (error instanceof AuthenticationError) return true;
+    throw error;
   }
 }
 

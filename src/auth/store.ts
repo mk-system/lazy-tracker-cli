@@ -29,12 +29,20 @@ const store = new Conf<StoreSchema>({
 
 const useKeychain = keychainAvailable();
 
-// Migrate tokens from filesystem to Keychain on first run
+// Migrate tokens from filesystem to Keychain on first run. This runs at
+// module load time for every command (including ones unrelated to auth), so
+// a Keychain failure here (locked, non-interactive session, etc.) must not
+// take the whole CLI down with it — leave the tokens in the file store and
+// retry the migration on the next invocation.
 if (useKeychain) {
-  const fileTokens = store.get('tokens');
-  if (fileTokens && !keychainGet()) {
-    keychainSet(JSON.stringify(fileTokens));
-    store.delete('tokens');
+  try {
+    const fileTokens = store.get('tokens');
+    if (fileTokens && !keychainGet()) {
+      keychainSet(JSON.stringify(fileTokens));
+      store.delete('tokens');
+    }
+  } catch {
+    // Migration failed; fileTokens (if any) is still intact in the store.
   }
 }
 

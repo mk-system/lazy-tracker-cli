@@ -44,6 +44,15 @@ lt auth login
 
 上記コマンドを実行後、ブラウザが自動的に開き、認証フローが開始される。
 
+### 認証情報の保存場所
+
+- macOS: アクセストークン・リフレッシュトークンは Keychain に保存される
+- Linux / Windows: Keychain が利用できないため、以下の場所に**平文で**保存される
+  - Linux: `~/.config/lazy-tracker-cli/`
+  - Windows: `%APPDATA%/lazy-tracker-cli/`
+
+平文保存となる環境では、共有マシンでの使用時にアカウント保護に注意すること。ログアウト (`lt auth logout`) でトークンは削除される。
+
 ### プロジェクト設定
 
 リポジトリルートに `.lazy-tracker.json` を作成する。
