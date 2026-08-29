@@ -156,7 +156,7 @@ export const updateTicketCommand = new Command('update')
       const response = await api.v1TicketsUpdate(ticketId, request);
       succeedSpinner('Ticket updated');
 
-      printJson({ ticket: response.data });
+      await printJson({ ticket: response.data });
     } catch (err) {
       failSpinner('Failed to update ticket');
       console.error(formatError(err));

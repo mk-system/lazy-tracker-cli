@@ -23,7 +23,7 @@ export const projectsCommand = new Command('projects')
       succeedSpinner(`Found ${projects.length} project(s)`);
 
       if (options.json) {
-        printJson(projects);
+        await printJson(projects);
         return;
       }
 
@@ -33,15 +33,15 @@ export const projectsCommand = new Command('projects')
       }
 
       const columns: TableColumn[] = [
-        { header: 'Team', key: 'team_key', width: 25 },
-        { header: 'Project', key: 'project_key', width: 25 },
+        { header: 'Team', key: 'teamKey', width: 25 },
+        { header: 'Project', key: 'projectKey', width: 25 },
         {
           header: 'Description',
           key: 'description',
           width: 35,
           formatter: (v) => truncate(String(v || ''), 32),
         },
-        { header: 'Velocity', key: 'weekly_velocity', width: 10 },
+        { header: 'Velocity', key: 'weeklyVelocity', width: 10 },
       ];
 
       console.log();

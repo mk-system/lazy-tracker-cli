@@ -90,7 +90,7 @@ export const deleteTicketCommand = new Command('delete')
       await api.v1TicketsDelete(ticketId);
       succeedSpinner('Ticket deleted');
 
-      printJson({
+      await printJson({
         deleted: true,
         ticketId,
       });

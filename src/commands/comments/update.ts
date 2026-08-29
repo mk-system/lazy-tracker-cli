@@ -15,7 +15,7 @@ export const updateCommentCommand = new Command('update')
       const response = await api.v1ChatsUpdate(chatId, { message: options.message });
       succeedSpinner('Comment updated');
 
-      printJson({
+      await printJson({
         comment: response.data,
       });
     } catch (err) {

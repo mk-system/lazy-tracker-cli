@@ -38,7 +38,7 @@ export const deleteCommentCommand = new Command('delete')
       await api.v1ChatsDelete(chatId);
       succeedSpinner('Comment deleted');
 
-      printJson({
+      await printJson({
         deleted: true,
         chatId,
       });

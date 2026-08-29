@@ -15,7 +15,7 @@ export const listCommentsCommand = new Command('list')
       const chats = response.data;
       succeedSpinner(`Found ${chats.length} comment(s)`);
 
-      printJson({
+      await printJson({
         ticketId,
         count: chats.length,
         comments: chats,

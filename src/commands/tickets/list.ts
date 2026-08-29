@@ -138,7 +138,7 @@ export const listTicketsCommand = new Command('list')
           : DEFAULT_COLUMNS;
         printTable(tickets, columns);
       } else {
-        printJson({
+        await printJson({
           ...context,
           count: tickets.length,
           tickets,

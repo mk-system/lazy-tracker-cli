@@ -87,7 +87,7 @@ export const createTicketCommand = new Command('create')
       );
       succeedSpinner('Ticket created');
 
-      printJson({
+      await printJson({
         team: resolved.team,
         project: resolved.project,
         ticket: response.data,

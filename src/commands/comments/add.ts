@@ -15,7 +15,7 @@ export const addCommentCommand = new Command('add')
       const response = await api.v1TicketsChatsCreate(ticketId, { message: options.message });
       succeedSpinner('Comment added');
 
-      printJson({
+      await printJson({
         ticketId,
         comment: response.data,
       });
