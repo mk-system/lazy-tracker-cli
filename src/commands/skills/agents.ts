@@ -1,5 +1,5 @@
 import { existsSync, statSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, basename } from 'node:path';
 import { homedir } from 'node:os';
 
 interface AgentConfig {
@@ -32,15 +32,27 @@ export function findGitRoot(dir: string): string | null {
   if (existsSync(gitPath)) {
     const stat = statSync(gitPath);
     if (stat.isDirectory()) return dir;
-    // worktree: .git is a file containing "gitdir: <path>"
+    // .git is a file: worktree ("gitdir: <repo>/.git/worktrees/<name>") or
+    // submodule ("gitdir: <superproject>/.git/modules/<path>"). Only trust these two
+    // recognized layouts — an unrecognized gitdir target could be a crafted pointer
+    // file trying to redirect resolveInstallDir()'s write/delete target outside `dir`.
     if (stat.isFile()) {
       const content = readFileSync(gitPath, 'utf-8').trim();
       const match = content.match(/^gitdir:\s*(.+)$/);
       if (match) {
         const gitdir = resolve(dir, match[1]);
-        const realGitDir = resolve(gitdir, '..', '..');
-        if (existsSync(realGitDir) && statSync(realGitDir).isDirectory()) {
-          return dirname(realGitDir);
+        const container = basename(dirname(gitdir));
+        if (container === 'worktrees') {
+          const realGitDir = resolve(gitdir, '..', '..');
+          if (existsSync(realGitDir) && statSync(realGitDir).isDirectory()) {
+            return dirname(realGitDir);
+          }
+        } else if (container === 'modules') {
+          // submodule: treat the submodule's own directory as its git root
+          // rather than following gitdir up into the superproject.
+          if (existsSync(gitdir) && statSync(gitdir).isDirectory()) {
+            return dir;
+          }
         }
       }
     }
@@ -67,8 +79,4 @@ export function resolveInstallDir(agent: AgentName, scope: Scope, customDir?: st
   }
 
   return resolve(homedir(), config.skillsDir, SKILL_DIR_NAME);
-}
-
-export function resolveSkillPath(agent: AgentName, scope: Scope, customDir?: string): string {
-  return resolve(resolveInstallDir(agent, scope, customDir), SKILL_FILE_NAME);
 }

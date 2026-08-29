@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getSkillsContent } from './content.js';
 import { success, info } from '../../utils/output.js';
@@ -13,9 +13,9 @@ export const installCommand = new Command('install')
   .option('--dir <path>', 'Install to a custom directory')
   .option('--dry-run', 'Show what would be done without making changes')
   .action(async (options) => {
-    const agentProvidedViaFlag = !!options.agent;
+    const skipInteractivePrompt = !!options.agent;
     const agent = await resolveAgent(options.agent);
-    const { scope, customDir } = await resolveScope(agent, options, agentProvidedViaFlag);
+    const { scope, customDir } = await resolveScope(agent, options, skipInteractivePrompt);
 
     const installDir = resolveInstallDir(agent, scope, customDir);
     const skillPath = resolve(installDir, SKILL_FILE_NAME);
@@ -36,6 +36,11 @@ export const installCommand = new Command('install')
     }
 
     mkdirSync(installDir, { recursive: true });
+    // writeFileSync follows symlinks; refuse to write through one so a pre-planted
+    // symlink at skillPath can't redirect this write outside installDir.
+    if (existsSync(skillPath) && lstatSync(skillPath).isSymbolicLink()) {
+      throw new Error(`Refusing to write through symlink: ${skillPath}`);
+    }
     writeFileSync(skillPath, newContent, 'utf-8');
     success(`Skills installed to ${skillPath}`);
   });

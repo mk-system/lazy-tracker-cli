@@ -21,12 +21,15 @@ export async function resolveAgent(agentOption?: string): Promise<AgentName> {
 export async function resolveScope(
   agent: AgentName,
   options: { project?: boolean; dir?: string },
-  agentProvidedViaFlag: boolean
+  skipInteractivePrompt: boolean
 ): Promise<{ scope: Scope; customDir?: string }> {
+  if (options.dir && options.project) {
+    throw new Error('--project and --dir cannot be used together');
+  }
   if (options.dir) return { scope: 'user', customDir: options.dir };
   if (options.project) return { scope: 'project' };
 
-  if (agentProvidedViaFlag) return { scope: 'user' };
+  if (skipInteractivePrompt) return { scope: 'user' };
 
   const result = await selectScope(agent);
   return { scope: result.scope, customDir: result.dir };

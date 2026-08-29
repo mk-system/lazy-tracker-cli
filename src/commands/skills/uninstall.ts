@@ -3,7 +3,7 @@ import { existsSync, readdirSync, rmSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { success, info, warn } from '../../utils/output.js';
 import { AGENT_NAMES_STR, SKILL_FILE_NAME, resolveInstallDir } from './agents.js';
-import { isInteractive, confirm } from './prompt.js';
+import { confirm } from './prompt.js';
 import { resolveAgent, resolveScope } from './resolve.js';
 
 export const uninstallCommand = new Command('uninstall')
@@ -12,10 +12,11 @@ export const uninstallCommand = new Command('uninstall')
   .option('--project', 'Uninstall from project scope (git root) instead of user scope')
   .option('--dir <path>', 'Uninstall from a custom directory')
   .option('--dry-run', 'Show what would be removed without making changes')
+  .option('-f, --force', 'Skip confirmation')
   .action(async (options) => {
-    const agentProvidedViaFlag = !!options.agent;
+    const skipInteractivePrompt = !!options.agent;
     const agent = await resolveAgent(options.agent);
-    const { scope, customDir } = await resolveScope(agent, options, agentProvidedViaFlag);
+    const { scope, customDir } = await resolveScope(agent, options, skipInteractivePrompt);
 
     const installDir = resolveInstallDir(agent, scope, customDir);
     const skillPath = resolve(installDir, SKILL_FILE_NAME);
@@ -39,7 +40,7 @@ export const uninstallCommand = new Command('uninstall')
       return;
     }
 
-    if (isInteractive()) {
+    if (!options.force) {
       const confirmed = await confirm(`Remove ${skillPath}?`);
       if (!confirmed) {
         info('Cancelled');
