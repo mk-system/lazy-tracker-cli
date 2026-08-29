@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Verify tag matches package.json version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version=$(jq -r .version package.json)
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version (${pkg_version}). Bump package.json first, merge that, then tag the merge commit."
+            exit 1
+          fi
+
+      - name: Build all platform binaries
+        run: bun run build:all
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          shasum -a 256 lt-macos-arm64 lt-macos-x64 lt-linux-x64 lt-linux-arm64 lt-windows-x64.exe > SHA256SUMS
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/lt-macos-arm64 dist/lt-macos-x64 dist/lt-linux-x64 dist/lt-linux-arm64 dist/lt-windows-x64.exe dist/SHA256SUMS \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes
