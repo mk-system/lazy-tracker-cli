@@ -5,6 +5,7 @@ import { teamsCommand } from './commands/teams/index.js';
 import { projectsCommand } from './commands/projects/index.js';
 import { ticketsCommand } from './commands/tickets/index.js';
 import { commentsCommand } from './commands/comments/index.js';
+import { skillsCommand } from './commands/skills/index.js';
 import { updateConfig, getConfig } from './auth/store.js';
 import { DEFAULT_API_URL } from './config/constants.js';
 
@@ -31,6 +32,7 @@ program.addCommand(teamsCommand);
 program.addCommand(projectsCommand);
 program.addCommand(ticketsCommand);
 program.addCommand(commentsCommand);
+program.addCommand(skillsCommand);
 
 program
   .command('config')

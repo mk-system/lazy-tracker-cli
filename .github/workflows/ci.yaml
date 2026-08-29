@@ -30,3 +30,11 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Flag skill content changes for extra review
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^skills/'; then
+            echo "::warning::skills/** changed — this ships as trusted AI-agent instructions (installed via 'lt skills install' into agent-trusted directories such as .claude/skills/). Lint/format/build do not check the safety of its natural-language content; please give this PR a maintainer content review beyond the standard code review."
+          fi
