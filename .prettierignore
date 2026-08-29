@@ -2,3 +2,7 @@ dist/
 node_modules/
 pnpm-lock.yaml
 src/api/__generated__/
+# review-pr plugin が管理するファイル。ci-setup が定期的に同期するため、このリポジトリの
+# フォーマット規約を強制すると、次回同期のたびに format:check が落ちる
+.github/workflows/ci-mode-review.yml
+.github/review-pr/
