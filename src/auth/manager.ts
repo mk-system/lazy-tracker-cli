@@ -1,10 +1,31 @@
-import { getTokens, setTokens, clearTokens, type TokenData, getConfig } from './store.js';
+import {
+  getTokens,
+  setTokens,
+  clearTokens,
+  type TokenData,
+  getConfig,
+  isUsingKeychain,
+} from './store.js';
 import { TOKEN_EXPIRY_BUFFER_MS, DEFAULT_API_URL, CLIENT_ID } from '../config/constants.js';
 import { AuthenticationError } from '../utils/errors.js';
 
-export function isAuthenticated(): boolean {
+export async function ensureLoginable(): Promise<boolean> {
   const tokens = getTokens();
-  return tokens !== undefined;
+  if (!tokens) return true;
+
+  if (!isTokenExpired()) return false;
+
+  try {
+    await refreshAccessToken(tokens.refreshToken);
+    return false;
+  } catch (error) {
+    // Only a confirmed-invalid refresh token means the user actually needs
+    // to go through the device flow again. A network blip or a Keychain
+    // failure isn't proof the session is invalid — surface those instead of
+    // silently forcing a fresh login.
+    if (error instanceof AuthenticationError) return true;
+    throw error;
+  }
 }
 
 export function isTokenExpired(): boolean {
@@ -40,6 +61,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: CLIENT_ID,
+      secure_storage: isUsingKeychain(),
     }),
   });
 
@@ -52,6 +74,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
     access_token: string;
     refresh_token: string;
     expires_in: number;
+    refresh_token_expires_in?: number;
     scope: string;
   };
 
@@ -59,6 +82,9 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresAt: Date.now() + data.expires_in * 1000,
+    refreshTokenExpiresAt: data.refresh_token_expires_in
+      ? Date.now() + data.refresh_token_expires_in * 1000
+      : undefined,
     scope: data.scope,
   };
 

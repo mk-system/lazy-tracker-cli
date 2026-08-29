@@ -2,7 +2,8 @@ import { Api } from './__generated__/Api.js';
 import { getValidAccessToken } from '../auth/manager.js';
 import { getConfig } from '../auth/store.js';
 import { DEFAULT_API_URL } from '../config/constants.js';
-import { APIError, NetworkError } from '../utils/errors.js';
+import { APIError, AuthenticationError, CLIError, NetworkError } from '../utils/errors.js';
+import { clearTokens } from '../auth/store.js';
 import type { RequestParams, ApiConfig } from './__generated__/http-client.js';
 import humps from 'humps';
 const { camelizeKeys, decamelizeKeys } = humps;
@@ -38,6 +39,10 @@ async function customFetch(input: RequestInfo | URL, init?: RequestInit): Promis
     const response = await fetch(input, modifiedInit);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        clearTokens();
+        throw new AuthenticationError('Session expired. Please login again with `lt auth login`.');
+      }
       const defaultMessage = `Request failed with status ${response.status}`;
       const errorMessage = await response
         .clone()
@@ -64,7 +69,10 @@ async function customFetch(input: RequestInfo | URL, init?: RequestInit): Promis
 
     return response;
   } catch (error) {
-    if (error instanceof APIError) throw error;
+    // AuthenticationError is a sibling of APIError (both extend CLIError), not
+    // a subtype of it — checking only `instanceof APIError` let it fall
+    // through to the NetworkError branch below and lose its identity.
+    if (error instanceof CLIError) throw error;
     throw new NetworkError(`Network error: ${(error as Error).message}`);
   }
 }

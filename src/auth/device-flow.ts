@@ -1,5 +1,6 @@
 import open from 'open';
-import { setTokens, type TokenData, getConfig } from './store.js';
+import { setTokens, type TokenData, getConfig, isUsingKeychain } from './store.js';
+import { KeychainError } from './keychain.js';
 import {
   DEFAULT_API_URL,
   CLIENT_ID,
@@ -22,6 +23,7 @@ interface TokenResponse {
   token_type: string;
   expires_in: number;
   refresh_token: string;
+  refresh_token_expires_in?: number;
   scope: string;
 }
 
@@ -102,6 +104,7 @@ export async function pollForToken(
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
           device_code: deviceCode,
           client_id: CLIENT_ID,
+          secure_storage: isUsingKeychain(),
         }),
       });
 
@@ -111,6 +114,9 @@ export async function pollForToken(
           accessToken: tokenResponse.access_token,
           refreshToken: tokenResponse.refresh_token,
           expiresAt: Date.now() + tokenResponse.expires_in * 1000,
+          refreshTokenExpiresAt: tokenResponse.refresh_token_expires_in
+            ? Date.now() + tokenResponse.refresh_token_expires_in * 1000
+            : undefined,
           scope: tokenResponse.scope,
         };
         setTokens(tokenData);
@@ -142,6 +148,9 @@ export async function pollForToken(
       }
     } catch (error) {
       if (error instanceof AuthenticationError) throw error;
+      // setTokens() above can fail with a KeychainError (e.g. Keychain locked)
+      // that has nothing to do with the network — don't relabel it as one.
+      if (error instanceof KeychainError) throw error;
       throw new NetworkError(`Failed to poll for token: ${(error as Error).message}`);
     }
   };

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { startDeviceFlow } from '../../auth/device-flow.js';
-import { isAuthenticated } from '../../auth/manager.js';
+import { ensureLoginable } from '../../auth/manager.js';
 import { startSpinner, succeedSpinner, failSpinner, stopSpinner } from '../../utils/spinner.js';
 import { success, error as outputError, info } from '../../utils/output.js';
 
@@ -9,7 +9,7 @@ export const loginCommand = new Command('login')
   .description('Login to Lazy Tracker using OAuth Device Authorization')
   .option('-f, --force', 'Force re-login even if already authenticated')
   .action(async (options) => {
-    if (isAuthenticated() && !options.force) {
+    if (!options.force && !(await ensureLoginable())) {
       info('Already authenticated. Use --force to re-login.');
       return;
     }
