@@ -236,7 +236,8 @@ lt config:set <key> <value>
 ## オプション
 
 ```bash
-# API URL を指定（デフォルト: https://api.lazy-tracker.com）
+# API URL を指定（デフォルト: https://api.lazy-tracker.com、この実行1回限り。恒久的に変更したい場合は
+# 下記の `lt config:set api-url` を使う）
 lt --api-url https://example.com tickets list
 
 # カラー出力を無効化

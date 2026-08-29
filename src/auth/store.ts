@@ -25,6 +25,15 @@ const store = new Conf<StoreSchema>({
   },
 });
 
+// In-process-only override for apiUrl. Kept separate from the persisted store so that
+// `--api-url` (a per-invocation override, see index.ts) never gets written to disk —
+// only the explicit `config:set api-url` path persists a new apiUrl.
+let apiUrlOverride: string | undefined;
+
+export function setApiUrlOverride(url: string): void {
+  apiUrlOverride = url;
+}
+
 export function getTokens(): TokenData | undefined {
   return store.get('tokens');
 }
@@ -37,8 +46,13 @@ export function clearTokens(): void {
   store.delete('tokens');
 }
 
-export function getConfig(): ConfigData {
+function readStoredConfig(): ConfigData {
   return store.get('config');
+}
+
+export function getConfig(): ConfigData {
+  const config = readStoredConfig();
+  return apiUrlOverride ? { ...config, apiUrl: apiUrlOverride } : config;
 }
 
 export function setConfig(config: ConfigData): void {
@@ -46,7 +60,9 @@ export function setConfig(config: ConfigData): void {
 }
 
 export function updateConfig(updates: Partial<ConfigData>): void {
-  const current = getConfig();
+  // Reads the raw stored config (not getConfig()'s override-merged view) so that an
+  // active --api-url override never gets folded back into what gets persisted here.
+  const current = readStoredConfig();
   setConfig({ ...current, ...updates });
 }
 

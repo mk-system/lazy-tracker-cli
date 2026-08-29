@@ -6,8 +6,22 @@ import { projectsCommand } from './commands/projects/index.js';
 import { ticketsCommand } from './commands/tickets/index.js';
 import { commentsCommand } from './commands/comments/index.js';
 import { skillsCommand } from './commands/skills/index.js';
-import { updateConfig, getConfig } from './auth/store.js';
+import { updateConfig, getConfig, setApiUrlOverride } from './auth/store.js';
 import { DEFAULT_API_URL } from './config/constants.js';
+
+function validateApiUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    console.error(chalk.red('Invalid API URL: must be a valid URL'));
+    process.exit(1);
+  }
+  if (parsed.protocol !== 'https:') {
+    console.error(chalk.red('Invalid API URL: only https:// is allowed'));
+    process.exit(1);
+  }
+}
 
 const program = new Command();
 
@@ -15,12 +29,13 @@ program
   .name('lt')
   .description('Lazy Tracker CLI - A command-line interface for Lazy Tracker')
   .version('0.1.0')
-  .option('--api-url <url>', 'API URL override')
+  .option('--api-url <url>', 'API URL override (this invocation only, not persisted)')
   .option('--no-color', 'Disable colored output')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
     if (opts.apiUrl) {
-      updateConfig({ apiUrl: opts.apiUrl });
+      validateApiUrl(opts.apiUrl);
+      setApiUrlOverride(opts.apiUrl);
     }
     if (opts.color === false) {
       chalk.level = 0;
@@ -68,6 +83,10 @@ program
       console.error(`Unknown configuration key: ${key}`);
       console.error(`Valid keys: ${Object.keys(keyMap).join(', ')}`);
       process.exit(1);
+    }
+
+    if (configKey === 'apiUrl') {
+      validateApiUrl(value);
     }
 
     updateConfig({ [configKey]: value });
