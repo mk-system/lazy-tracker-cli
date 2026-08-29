@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import packageJson from '../package.json' with { type: 'json' };
 import { authCommand } from './commands/auth/index.js';
 import { teamsCommand } from './commands/teams/index.js';
 import { projectsCommand } from './commands/projects/index.js';
@@ -28,7 +29,7 @@ const program = new Command();
 program
   .name('lt')
   .description('Lazy Tracker CLI - A command-line interface for Lazy Tracker')
-  .version('0.1.0')
+  .version(packageJson.version)
   .option('--api-url <url>', 'API URL override (this invocation only, not persisted)')
   .option('--no-color', 'Disable colored output')
   .hook('preAction', (thisCommand) => {
