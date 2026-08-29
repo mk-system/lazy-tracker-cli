@@ -1,0 +1,95 @@
+# review-pr:ci-mode — 公開リポジトリ向けの案内 workflow
+#
+# ⚠️ /review-pr:ci-setup が配置・更新する。手動編集しない（次回実行時に上書きされる）。
+#
+# このリポジトリは公開 (public) と判定されたため、review-pr:ci-mode の本体は起動しない。
+# review-pr は社内プロプラなツールで、ci-mode の出力（レビューコメント文面）が公開 PR に
+# そのまま残ると、severity 判断基準・repo-context の書式・anti-suppression の考え方等が
+# 間接的に外部から読み取れてしまう。そのため公開リポジトリでは /r コメントに対して
+# 「ローカルで /review-pr:normal-review を実行してください」という案内だけを返す。
+#
+# 必要な Secrets: なし（github.token のみで完結する）
+
+name: review-pr ci-mode
+on:
+  issue_comment:                 # PR コメントは issue comment 扱い
+    types: [created]
+  pull_request_review_comment:   # インラインレビューコメント
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+# 配布ファイル自体の版。公開リポジトリ向けテンプレートは非公開版とは独立のバージョン系列を持つ
+# （CI_WORKFLOW_FILE_VERSION の値そのものでどちらのテンプレートかが分かるよう prefix する）。
+env:
+  CI_WORKFLOW_FILE_VERSION: "public-1"
+
+jobs:
+  # /r コメントに「ローカルで実行してください」という案内だけを返す（コラボレーター全員が起動可）
+  notice:
+    if: |
+      startsWith(github.event.comment.body, '/r') &&
+      (github.event.issue.pull_request || github.event_name == 'pull_request_review_comment')
+    runs-on: ubuntu-latest
+    steps:
+      # 厳密なトリガー判定: 1 行目の前後空白（半角・全角・タブ・CR）をトリムし、
+      # 残りが「/r」単独 or 「/r + 空白 + 引数」なら実行（/rebase 等の誤爆は除外）
+      - name: Check trigger
+        id: trigger
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          shopt -s extglob
+          TAB=$'\t'
+          line=$(printf '%s\n' "$BODY" | head -1)
+          line="${line//$'\r'/}"
+          line="${line##+([ ${TAB}　])}"
+          line="${line%%+([ ${TAB}　])}"
+          case "$line" in
+            "/r"|"/r "*|"/r　"*|"/r${TAB}"*) echo "run=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "run=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Post notice
+        if: steps.trigger.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          cat > "$RUNNER_TEMP/notice.md" <<'EOF'
+          👋 このリポジトリは公開リポジトリのため、review-pr:ci-mode は自動実行しません。
+
+          review-pr は社内向けのプロプラなレビューツールです。レビュー結果をそのまま公開 PR に投稿すると、判定基準やナレッジが外部から間接的に読み取れてしまうため、公開リポジトリでは CI 上での自動投稿を行わない方針にしています。
+
+          レビューしたい場合は、ローカル環境（社内メンバーの Claude Code）で次を実行してください:
+
+          ```
+          /review-pr:normal-review <このPRのURL>
+          ```
+
+          🤖 review-pr:ci-setup
+          EOF
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/notice.md"
+
+      # 起動を可視化: /r コメントに 👀 リアクションを付ける
+      - name: React result
+        if: always() && steps.trigger.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request_review_comment" ]; then
+            ep="pulls/comments"
+          else
+            ep="issues/comments"
+          fi
+          gh api --method POST "repos/${{ github.repository }}/${ep}/${COMMENT_ID}/reactions" \
+            -f content=eyes >/dev/null 2>&1 || echo "reaction failed (non-fatal)"
+
+# 運用上の注意:
+# - github-actions ユーザーの投稿は後続ワークフローを起動しない（ループ防止）
+# - リポジトリが後から private に変わった場合は、通常の /review-pr:ci-setup を再実行すれば
+#   本体版 (ci-mode-review.yml の非公開テンプレート) に切り替わる
