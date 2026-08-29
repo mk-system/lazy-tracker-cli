@@ -1,11 +1,4 @@
-import {
-  getTokens,
-  setTokens,
-  clearTokens,
-  type TokenData,
-  getConfig,
-  isUsingKeychain,
-} from './store.js';
+import { getTokens, setTokens, clearTokens, type TokenData, getConfig } from './store.js';
 import { TOKEN_EXPIRY_BUFFER_MS, DEFAULT_API_URL, CLIENT_ID } from '../config/constants.js';
 import { AuthenticationError } from '../utils/errors.js';
 
@@ -61,7 +54,6 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: CLIENT_ID,
-      secure_storage: isUsingKeychain(),
     }),
   });
 
