@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name('lt')
   .description('Lazy Tracker CLI - A command-line interface for Lazy Tracker')
-  .version('0.1.0')
+  .version('1.3.0')
   .option('--api-url <url>', 'API URL override')
   .option('--no-color', 'Disable colored output')
   .hook('preAction', (thisCommand) => {
