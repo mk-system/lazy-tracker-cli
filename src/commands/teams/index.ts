@@ -6,13 +6,12 @@ import { formatError } from '../../utils/errors.js';
 
 export const teamsCommand = new Command('teams')
   .description('List teams')
-  .option('-a, --all', 'Show all teams (not just your teams)')
   .option('--json', 'Output as JSON')
   .action(async (options) => {
     startSpinner('Fetching teams...');
 
     try {
-      const response = options.all ? await api.v1TeamsList() : await api.v1TeamsMyList();
+      const response = await api.v1TeamsMyList();
       const teams = response.data;
       succeedSpinner(`Found ${teams.length} team(s)`);
 
@@ -27,7 +26,7 @@ export const teamsCommand = new Command('teams')
       }
 
       const columns: TableColumn[] = [
-        { header: 'Key', key: 'team_key', width: 30 },
+        { header: 'Key', key: 'teamKey', width: 30 },
         {
           header: 'Description',
           key: 'description',
