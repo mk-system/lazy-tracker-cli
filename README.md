@@ -121,7 +121,7 @@ lt tickets list --list-type current_backlog
 lt tickets create --title "タイトル"
 
 # 作成（オプション指定）
-lt tickets create --title "タイトル" --state unscheduled --list-type icebox
+lt tickets create --title "タイトル" --state unscheduled --point 3
 
 # 詳細
 lt tickets show <ticket-id>
@@ -151,15 +151,14 @@ lt tickets delete <ticket-id> --force
 
 #### tickets create オプション
 
-| オプション                 | 説明                                         | デフォルト      |
-| -------------------------- | -------------------------------------------- | --------------- |
-| `--title <title>`          | タイトル（必須）                             | -               |
-| `-d, --description <text>` | 説明                                         | 空文字          |
-| `--type <type>`            | チケットタイプ (normal, release)             | normal          |
-| `--state <state>`          | 初期状態 (unscheduled, created, started)     | created         |
-| `--list-type <type>`       | リストタイプ (done, current_backlog, icebox) | current_backlog |
-| `--point <points>`         | ストーリーポイント                           | -               |
-| `--release-date <date>`    | リリース日 (YYYY-MM-DD)                      | -               |
+| オプション                 | 説明                                     | デフォルト |
+| -------------------------- | ---------------------------------------- | ---------- |
+| `--title <title>`          | タイトル（必須）                         | -          |
+| `-d, --description <text>` | 説明                                     | 空文字     |
+| `--type <type>`            | チケットタイプ (normal, release)         | normal     |
+| `--state <state>`          | 初期状態 (unscheduled, created, started) | created    |
+| `--point <points>`         | ストーリーポイント                       | -          |
+| `--release-date <date>`    | リリース日 (YYYY-MM-DD)                  | -          |
 
 ### コメント
 
