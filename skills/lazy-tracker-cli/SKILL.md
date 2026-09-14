@@ -87,10 +87,10 @@ lt tickets delete <ticket-id-or-number> --force   # 確認スキップ
 
 ```bash
 # チケットのコメント一覧
-lt comments list <ticket-id>
+lt comments list <ticket-id-or-number>
 
 # コメント追加
-lt comments add <ticket-id> -m "コメント内容"
+lt comments add <ticket-id-or-number> -m "コメント内容"
 
 # コメント更新
 lt comments update <chat-id> -m "更新内容"
@@ -99,6 +99,8 @@ lt comments update <chat-id> -m "更新内容"
 lt comments delete <chat-id>
 lt comments delete <chat-id> --force
 ```
+
+**コメントの識別子:** `list` / `add` はチケットを対象とするため、チケットと同じく UUID またはチケット番号を受け付ける。`update` / `delete` はコメント自身の ID (`<chat-id>`) を対象とするため、チケット番号は使えない。`<chat-id>` は `lt comments list` の出力に含まれる `id` フィールドから取得する。
 
 ### 出力形式
 
@@ -177,14 +179,14 @@ lt tickets update <ticket-number> --state started
 ### 3. 作業中に進捗をコメントする
 
 ```bash
-lt comments add <ticket-id> -m "実装方針: ..."
+lt comments add <ticket-number> -m "実装方針: ..."
 ```
 
 ### 4. 作業を完了する
 
 ```bash
 lt tickets update <ticket-number> --state finished
-lt comments add <ticket-id> -m "完了: 変更内容のサマリ"
+lt comments add <ticket-number> -m "完了: 変更内容のサマリ"
 ```
 
 ### 5. レビュー中に発見した問題を別チケットとして発行する
@@ -213,7 +215,7 @@ gh pr view <pr-number> --json state,mergedAt
 
 # マージ済みならチケットを完了にする
 lt tickets update <ticket-number> --state finished
-lt comments add <ticket-id> -m "PR #<pr-number> がマージされたため完了"
+lt comments add <ticket-number> -m "PR #<pr-number> がマージされたため完了"
 ```
 
 ### 7. 未完了チケットのマージ状況を確認する
@@ -229,7 +231,7 @@ gh pr list --state merged --search "<ticket-number>"
 
 # マージ済みなのに未完了のチケットがあれば更新する
 lt tickets update <ticket-number> --state finished
-lt comments add <ticket-id> -m "PR #<pr-number> は既にマージ済み。チケットを完了に更新"
+lt comments add <ticket-number> -m "PR #<pr-number> は既にマージ済み。チケットを完了に更新"
 ```
 
 ### 8. `.lazy-tracker.json` の管理

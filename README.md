@@ -167,8 +167,14 @@ lt tickets delete <ticket-id> --force
 # 一覧
 lt comments list <ticket-id>
 
+# 一覧（チケット番号で指定）
+lt comments list 213 --team mk-system --project lazy-tracker
+
 # 追加
 lt comments add <ticket-id> -m "コメント内容"
+
+# 追加（チケット番号で指定）
+lt comments add 213 -m "コメント内容" --team mk-system --project lazy-tracker
 
 # 更新
 lt comments update <chat-id> -m "更新内容"
@@ -179,6 +185,8 @@ lt comments delete <chat-id>
 # 削除（確認スキップ）
 lt comments delete <chat-id> --force
 ```
+
+`list` / `add` はチケット ID (UUID) のほかにチケット番号も受け付ける。チケット番号はプロジェクト内でのみ一意なため、`--team` / `--project` または `.lazy-tracker.json` による team/project の解決が必要になる。`update` / `delete` はチケットではなくコメント ID (`<chat-id>`) を対象とするため、番号指定はできない。
 
 ### スキル（コーディングエージェント連携）
 
