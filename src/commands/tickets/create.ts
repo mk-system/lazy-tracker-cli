@@ -4,7 +4,6 @@ import type {
   JpMkscLazytrackerApiModelsTicketTicketCreateRequest as TicketCreateRequest,
   JpMkscLazytrackerApiModelsCommonTicketTypeEnum as TicketType,
   JpMkscLazytrackerApiModelsCommonTicketStateEnum as TicketState,
-  JpMkscLazytrackerApiModelsCommonTicketListTypeEnum as TicketListType,
 } from '../../api/__generated__/data-contracts.js';
 import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
@@ -19,7 +18,6 @@ export const createTicketCommand = new Command('create')
   .option('-d, --description <text>', 'Ticket description')
   .option('--type <type>', 'Ticket type (normal, release)', 'normal')
   .option('--state <state>', 'Initial state (unscheduled, created, started)', 'created')
-  .option('--list-type <type>', 'List type (done, current_backlog, icebox)', 'current_backlog')
   .option('--point <points>', 'Story points')
   .option('--release-date <date>', 'Release date (YYYY-MM-DD)')
   .action(async (options) => {
@@ -48,19 +46,11 @@ export const createTicketCommand = new Command('create')
         );
       }
 
-      const validListTypes: TicketListType[] = ['done', 'current_backlog', 'icebox'];
-      if (!validListTypes.includes(options.listType)) {
-        throw new CLIError(
-          `Invalid list type: ${options.listType}. Must be one of: ${validListTypes.join(', ')}`
-        );
-      }
-
       const request: TicketCreateRequest = {
         title: options.title,
         description: options.description || '',
         ticketType: options.type as TicketType,
         state: options.state as TicketState,
-        listType: options.listType as TicketListType,
         assigneeIds: [],
         tagIds: [],
       };
