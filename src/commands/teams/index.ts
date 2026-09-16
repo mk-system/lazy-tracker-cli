@@ -3,6 +3,7 @@ import { api } from '../../api/client.js';
 import { printTable, printJson, truncate, type TableColumn } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
+import { teamsMembersCommand } from './members.js';
 
 export const teamsCommand = new Command('teams')
   .description('List teams')
@@ -43,3 +44,5 @@ export const teamsCommand = new Command('teams')
       process.exit(1);
     }
   });
+
+teamsCommand.addCommand(teamsMembersCommand);

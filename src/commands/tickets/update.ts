@@ -8,6 +8,12 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import {
+  MemberDirectory,
+  annotateTicket,
+  fetchProjectMembers,
+  resolveAssigneeIds,
+} from '../../api/members.js';
 
 function isTicketNumber(value: string): boolean {
   return /^\d+$/.test(value);
@@ -141,9 +147,24 @@ export const updateTicketCommand = new Command('update')
   )
   .option('--point <points>', 'New story points (use "null" to clear)')
   .option('--release-date <date>', 'New release date (YYYY-MM-DD, use "null" to clear)')
+  .option('--assignee <names>', 'Add assignees by display name (comma-separated, or "me")')
   .action(async (ticketIdOrNumber, options) => {
     const request = buildUpdateRequest(options);
-    if (!request) {
+
+    let assigneeIds: string[] | undefined;
+    try {
+      const resolved = resolveTeamProject({ team: options.team, project: options.project });
+      const members =
+        options.assignee !== undefined && resolved
+          ? await fetchProjectMembers(resolved.team, resolved.project)
+          : null;
+      assigneeIds = await resolveAssigneeIds(options.assignee, members);
+    } catch (err) {
+      console.error(formatError(err));
+      process.exit(1);
+    }
+
+    if (!request && (!assigneeIds || assigneeIds.length === 0)) {
       console.error('No changes specified. Use --help to see available options.');
       process.exit(1);
     }
@@ -153,10 +174,19 @@ export const updateTicketCommand = new Command('update')
     startSpinner('Updating ticket...');
 
     try {
-      const response = await api.v1TicketsUpdate(ticketId, request);
+      if (request) {
+        await api.v1TicketsUpdate(ticketId, request);
+      }
+      if (assigneeIds) {
+        for (const assigneeId of assigneeIds) {
+          await api.v1TicketsAssigneesCreate(ticketId, { assigneeId });
+        }
+      }
       succeedSpinner('Ticket updated');
 
-      await printJson({ ticket: response.data });
+      const response = await api.v1TicketsDetail(ticketId);
+      const annotated = await annotateTicket(response.data, new MemberDirectory());
+      await printJson({ ticket: annotated });
     } catch (err) {
       failSpinner('Failed to update ticket');
       console.error(formatError(err));

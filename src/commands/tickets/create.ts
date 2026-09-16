@@ -10,6 +10,7 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError, CLIError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import { fetchProjectMembers, resolveAssigneeIds } from '../../api/members.js';
 
 export const createTicketCommand = new Command('create')
   .description('Create a new ticket (JSON output)')
@@ -22,6 +23,7 @@ export const createTicketCommand = new Command('create')
   .option('--list-type <type>', 'List type (done, current_backlog, icebox)', 'current_backlog')
   .option('--point <points>', 'Story points')
   .option('--release-date <date>', 'Release date (YYYY-MM-DD)')
+  .option('--assignee <names>', 'Assignees by display name (comma-separated, or "me")')
   .action(async (options) => {
     const resolved = resolveTeamProject({ team: options.team, project: options.project });
     if (!resolved) {
@@ -55,13 +57,19 @@ export const createTicketCommand = new Command('create')
         );
       }
 
+      const members =
+        options.assignee !== undefined
+          ? await fetchProjectMembers(resolved.team, resolved.project)
+          : null;
+      const assigneeIds = await resolveAssigneeIds(options.assignee, members);
+
       const request: TicketCreateRequest = {
         title: options.title,
         description: options.description || '',
         ticketType: options.type as TicketType,
         state: options.state as TicketState,
         listType: options.listType as TicketListType,
-        assigneeIds: [],
+        assigneeIds: assigneeIds ?? [],
         tagIds: [],
       };
 

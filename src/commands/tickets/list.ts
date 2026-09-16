@@ -7,12 +7,18 @@ import type {
 } from '../../api/__generated__/data-contracts.js';
 import { printJson, warn } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
-import { formatError } from '../../utils/errors.js';
+import { formatError, CLIError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import {
+  MemberDirectory,
+  annotateTicket,
+  fetchCurrentUserId,
+  type AnnotatedTicket,
+} from '../../api/members.js';
 
-const DEFAULT_COLUMNS = ['ticketNumber', 'title', 'state', 'projectKey', 'teamKey'];
+const DEFAULT_COLUMNS = ['ticketNumber', 'title', 'state', 'projectKey', 'teamKey', 'assignees'];
 
-function printTable(tickets: Ticket[], columns: string[]): void {
+function printTable(tickets: AnnotatedTicket[], columns: string[]): void {
   if (tickets.length === 0) {
     console.log('No tickets found.');
     return;
@@ -28,9 +34,11 @@ function printTable(tickets: Ticket[], columns: string[]): void {
     projectKey: 'Project',
     teamKey: 'Team',
     ticketType: 'Type',
+    assignees: 'Assignees',
+    owner: 'Owner',
   };
 
-  const getColumnValue = (ticket: Ticket, col: string): string => {
+  const getColumnValue = (ticket: AnnotatedTicket, col: string): string => {
     switch (col) {
       case 'id':
         return ticket.id;
@@ -50,6 +58,10 @@ function printTable(tickets: Ticket[], columns: string[]): void {
         return ticket.teamKey;
       case 'ticketType':
         return ticket.ticketType;
+      case 'assignees':
+        return ticket.assignees.length > 0 ? ticket.assignees.join(', ') : '-';
+      case 'owner':
+        return ticket.owner ?? '-';
       default:
         return '-';
     }
@@ -85,8 +97,9 @@ export const listTicketsCommand = new Command('list')
   .option('--table', 'Display as table instead of JSON')
   .option(
     '--columns <cols>',
-    'Comma-separated columns for table (default: ticketNumber,title,state,projectKey,teamKey)'
+    'Comma-separated columns for table (default: ticketNumber,title,state,projectKey,teamKey,assignees)'
   )
+  .option('--assignee <name>', 'Filter by assignee display name ("me" for yourself)')
   .action(async (options) => {
     const resolved = resolveTeamProject({ team: options.team, project: options.project });
 
@@ -126,22 +139,45 @@ export const listTicketsCommand = new Command('list')
         return { tickets: response.data, context: {} };
       })();
 
+      const directory = new MemberDirectory();
+
+      const assigneeFilter: Set<string> | undefined = await (async () => {
+        if (options.assignee === undefined) return undefined;
+        if (options.assignee === 'me') {
+          return new Set([await fetchCurrentUserId()]);
+        }
+        const teamKeys = context.team
+          ? [context.team]
+          : [...new Set(rawTickets.map((t) => t.teamKey))];
+        const ids = await directory.findUserIdsByDisplayName(options.assignee, teamKeys);
+        if (ids.size === 0) {
+          throw new CLIError(
+            `No member named "${options.assignee}" found` +
+              (context.team ? ` in team "${context.team}"` : " in the listed tickets' teams")
+          );
+        }
+        return ids;
+      })();
+
       const tickets = rawTickets
         .filter((t) => !options.state || t.state === (options.state as TicketState))
-        .filter((t) => !options.listType || t.listType === (options.listType as TicketListType));
+        .filter((t) => !options.listType || t.listType === (options.listType as TicketListType))
+        .filter((t) => !assigneeFilter || t.assigneeIds.some((id) => assigneeFilter.has(id)));
 
-      succeedSpinner(`Found ${tickets.length} ticket(s)`);
+      const annotated = await Promise.all(tickets.map((t) => annotateTicket(t, directory)));
+
+      succeedSpinner(`Found ${annotated.length} ticket(s)`);
 
       if (options.table) {
         const columns = options.columns
           ? options.columns.split(',').map((c: string) => c.trim())
           : DEFAULT_COLUMNS;
-        printTable(tickets, columns);
+        printTable(annotated, columns);
       } else {
         await printJson({
           ...context,
-          count: tickets.length,
-          tickets,
+          count: annotated.length,
+          tickets: annotated,
         });
       }
     } catch (err) {

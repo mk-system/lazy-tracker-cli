@@ -53,6 +53,8 @@ lt tickets list
 lt tickets list --state started
 lt tickets list --list-type current_backlog
 lt tickets list --team <key> --project <key>
+lt tickets list --assignee me          # 自分にアサインされたチケット
+lt tickets list --assignee "表示名"    # 指定メンバーにアサインされたチケット
 
 # 詳細取得
 lt tickets show <ticket-id-or-number>
@@ -60,11 +62,13 @@ lt tickets show <ticket-id-or-number>
 # 作成
 lt tickets create --title "タイトル"
 lt tickets create --title "タイトル" --description "説明" --state started --point 3
+lt tickets create --title "タイトル" --assignee me   # 自分を担当者にする
 
 # 更新
 lt tickets update <ticket-id-or-number> --state started
 lt tickets update <ticket-id-or-number> --title "新タイトル" --point 5
 lt tickets update <ticket-id-or-number> --point null   # ポイントをクリア
+lt tickets update <ticket-id-or-number> --assignee me   # 自分を担当者に追加
 
 # 削除
 lt tickets delete <ticket-id-or-number>
@@ -110,7 +114,9 @@ lt tickets list --table                               # テーブル表示
 lt tickets list --table --columns ticketNumber,title,state  # カラム指定
 ```
 
-利用可能なカラム: `id`, `ticketNumber`, `title`, `state`, `listType`, `point`, `projectKey`, `teamKey`, `ticketType`
+利用可能なカラム: `id`, `ticketNumber`, `title`, `state`, `listType`, `point`, `projectKey`, `teamKey`, `ticketType`, `assignees`, `owner`
+
+`tickets list` / `tickets show` の JSON 出力には `assigneeIds` / `ownerId`（UUID）に加えて、表示名に解決された `assignees` / `owner` が含まれる。UUID と表示名の対応は `lt teams members <team-key>` で確認できる。
 
 ### スキル管理
 
