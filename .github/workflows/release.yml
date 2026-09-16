@@ -9,8 +9,69 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and Release
+  verify-version:
+    name: Verify version
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches package.json version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version=$(jq -r .version package.json)
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version (${pkg_version}). Bump package.json first, merge that, then tag the merge commit."
+            exit 1
+          fi
+
+  build-macos:
+    name: Build macOS binaries
+    needs: verify-version
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build macOS binaries
+        run: |
+          bun run build:macos-arm64
+          bun run build:macos-x64
+
+      # bun --compile appends the JS bundle after the runtime is signed, leaving a
+      # signature that the arm64 kernel SIGKILLs. Re-signing is the actual repair,
+      # so it runs unconditionally instead of relying on how bun signs per host.
+      - name: Re-sign binaries ad-hoc
+        run: |
+          codesign --force --sign - dist/lt-macos-arm64
+          codesign --force --sign - dist/lt-macos-x64
+
+      - name: Verify signatures
+        run: |
+          codesign --verify --verbose dist/lt-macos-arm64
+          codesign --verify --verbose dist/lt-macos-x64
+
+      # x64 cannot run on this runner, so arm64 is the only executable check.
+      - name: Smoke test arm64 binary
+        run: ./dist/lt-macos-arm64 --version
+
+      - name: Upload macOS binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-macos
+          path: dist/lt-macos-*
+          if-no-files-found: error
+          retention-days: 1
+
+  build-others:
+    name: Build Linux and Windows binaries
+    needs: verify-version
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -22,17 +83,38 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Verify tag matches package.json version
+      - name: Build Linux and Windows binaries
         run: |
-          tag_version="${GITHUB_REF_NAME#v}"
-          pkg_version=$(jq -r .version package.json)
-          if [ "$tag_version" != "$pkg_version" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version (${pkg_version}). Bump package.json first, merge that, then tag the merge commit."
-            exit 1
-          fi
+          bun run build:linux-x64
+          bun run build:linux-arm64
+          bun run build:windows-x64
 
-      - name: Build all platform binaries
-        run: bun run build:all
+      - name: Smoke test linux-x64 binary
+        run: ./dist/lt-linux-x64 --version
+
+      - name: Upload Linux and Windows binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-others
+          path: |
+            dist/lt-linux-*
+            dist/lt-windows-*
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    needs:
+      - build-macos
+      - build-others
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: binaries-*
+          merge-multiple: true
 
       - name: Generate checksums
         run: |
@@ -42,6 +124,7 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             dist/lt-macos-arm64 dist/lt-macos-x64 dist/lt-linux-x64 dist/lt-linux-arm64 dist/lt-windows-x64.exe dist/SHA256SUMS \
