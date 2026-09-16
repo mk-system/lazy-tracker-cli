@@ -10,7 +10,12 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError, CLIError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
-import { fetchProjectMembers, resolveAssigneeIds } from '../../api/members.js';
+import {
+  MemberDirectory,
+  annotateTicket,
+  fetchProjectMembers,
+  resolveAssigneeIds,
+} from '../../api/members.js';
 
 export const createTicketCommand = new Command('create')
   .description('Create a new ticket (JSON output)')
@@ -95,10 +100,11 @@ export const createTicketCommand = new Command('create')
       );
       succeedSpinner('Ticket created');
 
+      const annotated = await annotateTicket(response.data, new MemberDirectory());
       await printJson({
         team: resolved.team,
         project: resolved.project,
-        ticket: response.data,
+        ticket: annotated,
       });
     } catch (err) {
       failSpinner('Failed to create ticket');
