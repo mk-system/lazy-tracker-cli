@@ -157,7 +157,7 @@ lt tickets delete <ticket-id> --force
 | `--list-type <type>`  | リストタイプでフィルタ (done, current_backlog, icebox)                                  |
 | `--table`             | テーブル形式で表示                                                                      |
 | `--columns <cols>`    | 表示カラム (カンマ区切り)                                                               |
-| `--assignee <names>`  | 担当者の表示名でフィルタ（カンマ区切り可、`me` で自分）                                  |
+| `--assignee <names>`  | 担当者の表示名でフィルタ（カンマ区切り可、`me` で自分）                                   |
 
 利用可能なカラム: `id`, `ticketNumber`, `title`, `state`, `listType`, `point`, `projectKey`, `teamKey`, `ticketType`, `assignees`, `owner`
 
@@ -174,7 +174,7 @@ lt tickets delete <ticket-id> --force
 | `--list-type <type>`       | リストタイプ (done, current_backlog, icebox) | current_backlog |
 | `--point <points>`         | ストーリーポイント                           | -               |
 | `--release-date <date>`    | リリース日 (YYYY-MM-DD)                      | -               |
-| `--assignee <names>`       | 担当者（表示名のカンマ区切り、または `me`）  | -               |
+| `--assignee <names>`       | 担当者（表示名のカンマ区切り、または `me`）      | -               |
 
 ### チーム
 
