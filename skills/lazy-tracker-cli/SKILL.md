@@ -54,7 +54,7 @@ lt tickets list --state started
 lt tickets list --list-type current_backlog
 lt tickets list --team <key> --project <key>
 lt tickets list --assignee me          # 自分にアサインされたチケット
-lt tickets list --assignee "表示名"    # 指定メンバーにアサインされたチケット
+lt tickets list --assignee "表示名"    # 指定メンバーにアサインされたチケット（カンマ区切りで複数可）
 
 # 詳細取得
 lt tickets show <ticket-id-or-number>

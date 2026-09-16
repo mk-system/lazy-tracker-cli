@@ -157,7 +157,7 @@ lt tickets delete <ticket-id> --force
 | `--list-type <type>`  | リストタイプでフィルタ (done, current_backlog, icebox)                                  |
 | `--table`             | テーブル形式で表示                                                                      |
 | `--columns <cols>`    | 表示カラム (カンマ区切り)                                                               |
-| `--assignee <name>`   | 担当者の表示名でフィルタ (`me` で自分)                                                  |
+| `--assignee <names>`  | 担当者の表示名でフィルタ（カンマ区切り可、`me` で自分）                                  |
 
 利用可能なカラム: `id`, `ticketNumber`, `title`, `state`, `listType`, `point`, `projectKey`, `teamKey`, `ticketType`, `assignees`, `owner`
 

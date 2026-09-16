@@ -99,7 +99,10 @@ export const listTicketsCommand = new Command('list')
     '--columns <cols>',
     'Comma-separated columns for table (default: ticketNumber,title,state,projectKey,teamKey,assignees)'
   )
-  .option('--assignee <name>', 'Filter by assignee display name ("me" for yourself)')
+  .option(
+    '--assignee <names>',
+    'Filter by assignee display names (comma-separated, "me" for yourself)'
+  )
   .action(async (options) => {
     const resolved = resolveTeamProject({ team: options.team, project: options.project });
 
@@ -142,23 +145,31 @@ export const listTicketsCommand = new Command('list')
       const directory = new MemberDirectory();
 
       const assigneeFilter: Set<string> | undefined = await (async () => {
-        const name = options.assignee?.trim();
-        if (name === undefined) return undefined;
-        if (name === '') {
+        if (options.assignee === undefined) return undefined;
+        const names = (options.assignee as string)
+          .split(',')
+          .map((name) => name.trim())
+          .filter((name) => name.length > 0);
+        if (names.length === 0) {
           throw new CLIError('--assignee requires a display name or "me"');
-        }
-        if (name === 'me') {
-          return new Set([await fetchCurrentUserId()]);
         }
         const teamKeys = context.team
           ? [context.team]
           : [...new Set(rawTickets.map((t) => t.teamKey))];
-        const ids = await directory.findUserIdsByDisplayName(name, teamKeys);
-        if (ids.size === 0) {
-          throw new CLIError(
-            `No member named "${name}" found` +
-              (context.team ? ` in team "${context.team}"` : " in the listed tickets' teams")
-          );
+        const ids = new Set<string>();
+        for (const name of names) {
+          if (name === 'me') {
+            ids.add(await fetchCurrentUserId());
+            continue;
+          }
+          const matched = await directory.findUserIdsByDisplayName(name, teamKeys);
+          if (matched.size === 0) {
+            throw new CLIError(
+              `No member named "${name}" found` +
+                (context.team ? ` in team "${context.team}"` : " in the listed tickets' teams")
+            );
+          }
+          for (const id of matched) ids.add(id);
         }
         return ids;
       })();
