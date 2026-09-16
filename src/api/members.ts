@@ -58,11 +58,6 @@ export class MemberDirectory {
     return pending;
   }
 
-  async nameOf(teamKey: string, userId: string): Promise<string> {
-    const members = await this.forTeam(teamKey);
-    return members?.get(userId) ?? userId;
-  }
-
   /** Exact displayName match across the given teams. */
   async findUserIdsByDisplayName(displayName: string, teamKeys: string[]): Promise<Set<string>> {
     const ids = new Set<string>();

@@ -151,25 +151,39 @@ export const updateTicketCommand = new Command('update')
   .action(async (ticketIdOrNumber, options) => {
     const request = buildUpdateRequest(options);
 
-    let assigneeIds: string[] | undefined;
-    try {
-      const resolved = resolveTeamProject({ team: options.team, project: options.project });
-      const members =
-        options.assignee !== undefined && resolved
-          ? await fetchProjectMembers(resolved.team, resolved.project)
-          : null;
-      assigneeIds = await resolveAssigneeIds(options.assignee, members);
-    } catch (err) {
-      console.error(formatError(err));
-      process.exit(1);
-    }
-
-    if (!request && (!assigneeIds || assigneeIds.length === 0)) {
+    if (!request && options.assignee === undefined) {
       console.error('No changes specified. Use --help to see available options.');
       process.exit(1);
     }
 
     const ticketId = await resolveTicketId(ticketIdOrNumber, options);
+
+    let assigneeIds: string[] | undefined;
+    if (options.assignee !== undefined) {
+      try {
+        // Names are resolved against the project the ticket actually belongs to.
+        // A UUID can point at a different project than the configured default,
+        // so resolveTeamProject() is not the right scope here.
+        const needsMembers = options.assignee
+          .split(',')
+          .some((name: string) => name.trim().length > 0 && name.trim() !== 'me');
+        const members = needsMembers
+          ? await (async () => {
+              const ticket = await api.v1TicketsDetail(ticketId);
+              return fetchProjectMembers(ticket.data.teamKey, ticket.data.projectKey);
+            })()
+          : null;
+        assigneeIds = await resolveAssigneeIds(options.assignee, members);
+      } catch (err) {
+        console.error(formatError(err));
+        process.exit(1);
+      }
+    }
+
+    if (!request && !assigneeIds) {
+      console.error('No changes specified. Use --help to see available options.');
+      process.exit(1);
+    }
 
     startSpinner('Updating ticket...');
 
