@@ -142,17 +142,21 @@ export const listTicketsCommand = new Command('list')
       const directory = new MemberDirectory();
 
       const assigneeFilter: Set<string> | undefined = await (async () => {
-        if (options.assignee === undefined) return undefined;
-        if (options.assignee === 'me') {
+        const name = options.assignee?.trim();
+        if (name === undefined) return undefined;
+        if (name === '') {
+          throw new CLIError('--assignee requires a display name or "me"');
+        }
+        if (name === 'me') {
           return new Set([await fetchCurrentUserId()]);
         }
         const teamKeys = context.team
           ? [context.team]
           : [...new Set(rawTickets.map((t) => t.teamKey))];
-        const ids = await directory.findUserIdsByDisplayName(options.assignee, teamKeys);
+        const ids = await directory.findUserIdsByDisplayName(name, teamKeys);
         if (ids.size === 0) {
           throw new CLIError(
-            `No member named "${options.assignee}" found` +
+            `No member named "${name}" found` +
               (context.team ? ` in team "${context.team}"` : " in the listed tickets' teams")
           );
         }

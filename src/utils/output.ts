@@ -10,7 +10,8 @@ export function error(message: string): void {
 }
 
 export function warn(message: string): void {
-  console.log(chalk.yellow('!'), message);
+  // stderr: warnings are diagnostics, not data — stdout stays valid JSON.
+  console.error(chalk.yellow('!'), message);
 }
 
 export function info(message: string): void {
