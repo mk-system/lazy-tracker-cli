@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "bun run bin/lt.ts",
+    "test": "bun test",
     "build": "bun build --compile ./bin/lt.ts --outfile dist/lt",
     "build:macos-arm64": "bun build --compile --target=bun-darwin-arm64 ./bin/lt.ts --outfile dist/lt-macos-arm64",
     "build:macos-x64": "bun build --compile --target=bun-darwin-x64 ./bin/lt.ts --outfile dist/lt-macos-x64",

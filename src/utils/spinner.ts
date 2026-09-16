@@ -46,3 +46,7 @@ export function updateSpinner(text: string, spinner?: Ora): void {
     s.text = text;
   }
 }
+
+export function clearSpinnerLine(): void {
+  state.current?.clear();
+}

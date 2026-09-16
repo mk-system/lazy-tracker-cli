@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Build and Lint
+    name: Build, Lint and Test
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -27,6 +27,9 @@ jobs:
 
       - name: Format check
         run: bun run format:check
+
+      - name: Test
+        run: bun test
 
       - name: Build
         run: bun run build

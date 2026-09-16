@@ -251,6 +251,33 @@ lt --api-url https://example.com tickets list
 
 # カラー出力を無効化
 lt --no-color tickets list
+
+# 診断ログを出力（リクエストの method / URL / ステータス / 所要時間、
+# エラーレスポンスのボディ、スタックトレース）
+lt --verbose comments list <ticket-id>
+```
+
+### `--verbose` について
+
+診断ログはすべて **stderr** に出力される。stdout は JSON のままなので、
+`lt --verbose tickets list 2>/dev/null | jq .` のようにパイプしても壊れない。
+
+Authorization ヘッダ・アクセストークン・リフレッシュトークンはログに出力しない。
+OAuth トークンエンドポイントについては method / URL / ステータスのみを記録し、
+リクエスト・レスポンスのボディは記録しない。
+
+出力例:
+
+```console
+$ lt --verbose comments list 00000000-0000-0000-0000-000000000000
+[debug] → GET https://api.lazy-tracker.com/api/v1/tickets/00000000-.../chats
+[debug] ← 404 GET https://api.lazy-tracker.com/api/v1/tickets/00000000-.../chats (212ms)
+[debug] response body: {"status":"error","errorCode":"NOT_FOUND","details":null,"exceptionInfo":null}
+✖ Failed to fetch comments
+Request failed with status 404
+  status: 404
+  response: {"status":"error","errorCode":"NOT_FOUND","details":null,"exceptionInfo":null}
+  at customFetch (.../src/api/client.ts:80:17)
 ```
 
 ## 環境変数
@@ -285,6 +312,9 @@ bun run build:windows-x64
 
 # API クライアント再生成（バックエンド起動必須）
 bun run generate-api
+
+# テスト
+bun test
 
 # Lint / Format
 bun run lint
