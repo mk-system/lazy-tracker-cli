@@ -155,9 +155,25 @@ lt skills uninstall --agent claude-code --dry-run
 ```bash
 lt --api-url <url> <command>   # API URL を上書き
 lt --no-color <command>        # カラー出力を無効化
+lt --verbose <command>         # 診断ログを stderr に出力
 ```
 
 環境変数 `LT_API_URL` でも API URL を指定可能。
+
+### コマンドが失敗したとき
+
+エラーメッセージだけでは原因が分からない場合は `--verbose` を付けて再実行する。
+リクエストの method / URL / ステータス / 所要時間、エラーレスポンスのボディ、
+スタックトレースが **stderr** に出力される。
+
+```bash
+lt --verbose comments list <ticket-id>
+```
+
+stdout は JSON のままなので、`lt --verbose tickets list 2>/dev/null` で
+ログを捨てつつ結果だけを受け取れる。
+
+トークンの類はログに出力されないため、出力をそのまま貼り付けて共有してよい。
 
 ## チケット駆動開発ワークフロー
 

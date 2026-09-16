@@ -9,6 +9,7 @@ import { commentsCommand } from './commands/comments/index.js';
 import { skillsCommand } from './commands/skills/index.js';
 import { updateConfig, getConfig, setApiUrlOverride } from './auth/store.js';
 import { DEFAULT_API_URL } from './config/constants.js';
+import { setVerbose } from './utils/logger.js';
 
 function validateApiUrl(url: string): void {
   let parsed: URL;
@@ -32,8 +33,10 @@ program
   .version(packageJson.version)
   .option('--api-url <url>', 'API URL override (this invocation only, not persisted)')
   .option('--no-color', 'Disable colored output')
+  .option('--verbose', 'Print diagnostic logs (requests, error responses, stack traces) to stderr')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
+    setVerbose(Boolean(opts.verbose));
     if (opts.apiUrl) {
       validateApiUrl(opts.apiUrl);
       setApiUrlOverride(opts.apiUrl);

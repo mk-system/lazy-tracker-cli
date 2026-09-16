@@ -8,6 +8,7 @@ import {
   POLLING_INTERVAL_MS,
 } from '../config/constants.js';
 import { AuthenticationError, NetworkError } from '../utils/errors.js';
+import { debugRequest, debugResponse } from '../utils/logger.js';
 
 interface DeviceCodeResponse {
   device_code: string;
@@ -51,8 +52,12 @@ function getApiUrl(): string {
 export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
   const apiUrl = getApiUrl();
 
+  const url = `${apiUrl}/api/v1/oauth/device/code`;
+  const startedAt = Date.now();
+
   try {
-    const response = await fetch(`${apiUrl}/api/v1/oauth/device/code`, {
+    debugRequest('POST', url);
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,6 +67,7 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
         scope: DEFAULT_SCOPES,
       }),
     });
+    debugResponse('POST', url, response.status, Date.now() - startedAt);
 
     if (!response.ok) {
       const errorData = (await response.json().catch(() => ({}))) as OAuthError;
@@ -73,7 +79,9 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
     return (await response.json()) as DeviceCodeResponse;
   } catch (error) {
     if (error instanceof AuthenticationError) throw error;
-    throw new NetworkError(`Failed to connect to API: ${(error as Error).message}`);
+    throw new NetworkError(`Failed to connect to API: ${(error as Error).message}`, {
+      cause: error,
+    });
   }
 }
 
@@ -94,8 +102,14 @@ export async function pollForToken(
 
     callbacks.onPolling();
 
+    // Bodies stay out of the log on both sides: the request carries the device
+    // code and the success response carries the issued tokens.
+    const url = `${apiUrl}/api/v1/oauth/token`;
+    const startedAt = Date.now();
+
     try {
-      const response = await fetch(`${apiUrl}/api/v1/oauth/token`, {
+      debugRequest('POST', url);
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,6 +120,7 @@ export async function pollForToken(
           client_id: CLIENT_ID,
         }),
       });
+      debugResponse('POST', url, response.status, Date.now() - startedAt);
 
       if (response.ok) {
         const tokenResponse = (await response.json()) as TokenResponse;
@@ -150,7 +165,9 @@ export async function pollForToken(
       // setTokens() above can fail with a KeychainError (e.g. Keychain locked)
       // that has nothing to do with the network — don't relabel it as one.
       if (error instanceof KeychainError) throw error;
-      throw new NetworkError(`Failed to poll for token: ${(error as Error).message}`);
+      throw new NetworkError(`Failed to poll for token: ${(error as Error).message}`, {
+        cause: error,
+      });
     }
   };
 

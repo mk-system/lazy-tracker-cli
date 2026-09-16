@@ -1,6 +1,7 @@
 import { getTokens, setTokens, clearTokens, type TokenData, getConfig } from './store.js';
 import { TOKEN_EXPIRY_BUFFER_MS, DEFAULT_API_URL, CLIENT_ID } from '../config/constants.js';
 import { AuthenticationError } from '../utils/errors.js';
+import { debug, debugRequest, debugResponse } from '../utils/logger.js';
 
 export async function ensureLoginable(): Promise<boolean> {
   const tokens = getTokens();
@@ -45,7 +46,12 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
   const config = getConfig();
   const apiUrl = config.apiUrl || DEFAULT_API_URL;
 
-  const response = await fetch(`${apiUrl}/api/v1/oauth/token`, {
+  // Neither the request nor the response body is logged here: both carry a
+  // refresh token, and the success response carries an access token too.
+  const url = `${apiUrl}/api/v1/oauth/token`;
+  const startedAt = Date.now();
+  debugRequest('POST', url);
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -56,8 +62,10 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
       client_id: CLIENT_ID,
     }),
   });
+  debugResponse('POST', url, response.status, Date.now() - startedAt);
 
   if (!response.ok) {
+    debug('token refresh failed: clearing stored tokens');
     clearTokens();
     throw new AuthenticationError('Session expired. Please login again with `lt auth login`.');
   }
