@@ -5,6 +5,7 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import { MemberDirectory, annotateTicket } from '../../api/members.js';
 
 function isTicketNumber(value: string): boolean {
   return /^\d+$/.test(value);
@@ -48,11 +49,12 @@ export const showTicketCommand = new Command('show')
 
     try {
       const { ticket, context } = await fetchTicket(ticketIdOrNumber, options);
+      const annotated = await annotateTicket(ticket, new MemberDirectory());
       succeedSpinner('Ticket loaded');
 
       await printJson({
         ...context,
-        ticket,
+        ticket: annotated,
       });
     } catch (err) {
       failSpinner('Failed to fetch ticket');

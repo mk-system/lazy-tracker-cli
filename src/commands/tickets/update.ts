@@ -8,6 +8,12 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import {
+  MemberDirectory,
+  annotateTicket,
+  fetchProjectMembers,
+  resolveAssigneeIds,
+} from '../../api/members.js';
 
 function isTicketNumber(value: string): boolean {
   return /^\d+$/.test(value);
@@ -141,22 +147,60 @@ export const updateTicketCommand = new Command('update')
   )
   .option('--point <points>', 'New story points (use "null" to clear)')
   .option('--release-date <date>', 'New release date (YYYY-MM-DD, use "null" to clear)')
+  .option('--assignee <names>', 'Add assignees by display name (comma-separated, or "me")')
   .action(async (ticketIdOrNumber, options) => {
     const request = buildUpdateRequest(options);
-    if (!request) {
+
+    if (!request && options.assignee === undefined) {
       console.error('No changes specified. Use --help to see available options.');
       process.exit(1);
     }
 
     const ticketId = await resolveTicketId(ticketIdOrNumber, options);
 
+    let assigneeIds: string[] | undefined;
+    if (options.assignee !== undefined) {
+      try {
+        // Names are resolved against the project the ticket actually belongs to.
+        // A UUID can point at a different project than the configured default,
+        // so resolveTeamProject() is not the right scope here.
+        const needsMembers = options.assignee
+          .split(',')
+          .some((name: string) => name.trim().length > 0 && name.trim() !== 'me');
+        const members = needsMembers
+          ? await (async () => {
+              const ticket = await api.v1TicketsDetail(ticketId);
+              return fetchProjectMembers(ticket.data.teamKey, ticket.data.projectKey);
+            })()
+          : null;
+        assigneeIds = await resolveAssigneeIds(options.assignee, members);
+      } catch (err) {
+        console.error(formatError(err));
+        process.exit(1);
+      }
+    }
+
+    if (!request && !assigneeIds) {
+      console.error('No changes specified. Use --help to see available options.');
+      process.exit(1);
+    }
+
     startSpinner('Updating ticket...');
 
     try {
-      const response = await api.v1TicketsUpdate(ticketId, request);
+      if (request) {
+        await api.v1TicketsUpdate(ticketId, request);
+      }
+      if (assigneeIds) {
+        for (const assigneeId of assigneeIds) {
+          await api.v1TicketsAssigneesCreate(ticketId, { assigneeId });
+        }
+      }
       succeedSpinner('Ticket updated');
 
-      await printJson({ ticket: response.data });
+      const response = await api.v1TicketsDetail(ticketId);
+      const annotated = await annotateTicket(response.data, new MemberDirectory());
+      await printJson({ ticket: annotated });
     } catch (err) {
       failSpinner('Failed to update ticket');
       console.error(formatError(err));

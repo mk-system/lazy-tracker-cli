@@ -117,17 +117,28 @@ lt tickets list --state started
 # list-type でフィルタ
 lt tickets list --list-type current_backlog
 
+# assignee でフィルタ（表示名または "me"）
+lt tickets list --assignee me
+lt tickets list --assignee "表示名"
+
 # 作成
 lt tickets create --title "タイトル"
 
 # 作成（オプション指定）
 lt tickets create --title "タイトル" --state unscheduled --list-type icebox
 
+# 作成（担当者を指定。表示名のカンマ区切り、または "me"）
+lt tickets create --title "タイトル" --assignee me
+lt tickets create --title "タイトル" --assignee "田中 太郎,鈴木 一郎"
+
 # 詳細
 lt tickets show <ticket-id>
 
 # 更新
 lt tickets update <ticket-id> --state started
+
+# 担当者を追加（表示名のカンマ区切り、または "me"）
+lt tickets update <ticket-id> --assignee me
 
 # 削除
 lt tickets delete <ticket-id>
@@ -146,8 +157,11 @@ lt tickets delete <ticket-id> --force
 | `--list-type <type>`  | リストタイプでフィルタ (done, current_backlog, icebox)                                  |
 | `--table`             | テーブル形式で表示                                                                      |
 | `--columns <cols>`    | 表示カラム (カンマ区切り)                                                               |
+| `--assignee <names>`  | 担当者の表示名でフィルタ（カンマ区切り可、`me` で自分）                                   |
 
-利用可能なカラム: `id`, `ticketNumber`, `title`, `state`, `listType`, `point`, `projectKey`, `teamKey`, `ticketType`
+利用可能なカラム: `id`, `ticketNumber`, `title`, `state`, `listType`, `point`, `projectKey`, `teamKey`, `ticketType`, `assignees`, `owner`
+
+`tickets list` / `tickets show` の JSON 出力には、UUID の `assigneeIds` / `ownerId` に加えて、表示名に解決された `assignees` / `owner` フィールドが含まれる。UUID と表示名の対応は `lt teams members <team-key>` で確認できる。
 
 #### tickets create オプション
 
@@ -160,6 +174,17 @@ lt tickets delete <ticket-id> --force
 | `--list-type <type>`       | リストタイプ (done, current_backlog, icebox) | current_backlog |
 | `--point <points>`         | ストーリーポイント                           | -               |
 | `--release-date <date>`    | リリース日 (YYYY-MM-DD)                      | -               |
+| `--assignee <names>`       | 担当者（表示名のカンマ区切り、または `me`）      | -               |
+
+### チーム
+
+```bash
+# チーム一覧
+lt teams
+
+# チームのメンバー一覧（ユーザー ID と表示名の対応を確認できる）
+lt teams members <team-key>
+```
 
 ### コメント
 
