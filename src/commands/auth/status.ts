@@ -41,7 +41,6 @@ export const statusCommand = new Command('status')
       const refreshExpiresAt = new Date(tokens.refreshTokenExpiresAt);
       console.log('  Refresh token expires:', refreshExpiresAt.toLocaleString());
     }
-    console.log('  Scopes:', tokens.scope);
 
     if (config.apiUrl) {
       console.log('  API URL:', config.apiUrl);

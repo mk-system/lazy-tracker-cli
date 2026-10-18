@@ -1,12 +1,7 @@
 import open from 'open';
 import { setTokens, type TokenData, getConfig } from './store.js';
 import { KeychainError } from './keychain.js';
-import {
-  DEFAULT_API_URL,
-  CLIENT_ID,
-  DEFAULT_SCOPES,
-  POLLING_INTERVAL_MS,
-} from '../config/constants.js';
+import { DEFAULT_API_URL, CLIENT_ID, POLLING_INTERVAL_MS } from '../config/constants.js';
 import { AuthenticationError, NetworkError } from '../utils/errors.js';
 import { debugRequest, debugResponse } from '../utils/logger.js';
 
@@ -25,7 +20,6 @@ interface TokenResponse {
   expires_in: number;
   refresh_token: string;
   refresh_token_expires_in?: number;
-  scope: string;
 }
 
 interface OAuthError {
@@ -64,7 +58,6 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
       },
       body: JSON.stringify({
         client_id: CLIENT_ID,
-        scope: DEFAULT_SCOPES,
       }),
     });
     debugResponse('POST', url, response.status, Date.now() - startedAt);
@@ -131,7 +124,6 @@ export async function pollForToken(
           refreshTokenExpiresAt: tokenResponse.refresh_token_expires_in
             ? Date.now() + tokenResponse.refresh_token_expires_in * 1000
             : undefined,
-          scope: tokenResponse.scope,
         };
         setTokens(tokenData);
         callbacks.onSuccess();
