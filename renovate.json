@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices"],
+  "labels": ["Type: dependencies"],
+  "dependencyDashboard": true,
+  "timezone": "Asia/Tokyo",
+  "schedule": ["before 9am"],
+  "reviewers": ["m1sk9"],
+  "platformAutomerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "merge-commit",
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "npm: stabilityDays 14 for non-security updates",
+      "matchManagers": ["npm"],
+      "minimumReleaseAge": "14 days"
+    },
+    {
+      "description": "Major updates require manual approval via dashboard (no automerge)",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "Minor/patch updates auto-PR on schedule and automerge",
+      "matchUpdateTypes": ["minor", "patch"],
+      "dependencyDashboardApproval": false,
+      "automerge": true
+    },
+    {
+      "description": "Pin/digest/lockFileMaintenance updates automerge",
+      "matchUpdateTypes": ["pin", "pinDigest", "digest", "lockFileMaintenance"],
+      "automerge": true
+    },
+    {
+      "description": "Pause all automerge while CI is unavailable: automerge would land updates that never ran lint/test/build. Keep this rule last so it overrides the automerge rules above, and remove it once CI is back.",
+      "matchPackageNames": ["*"],
+      "automerge": false
+    }
+  ]
+}
