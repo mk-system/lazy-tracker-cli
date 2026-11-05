@@ -74,13 +74,15 @@ lt tickets delete <ticket-id-or-number> --force   # 確認スキップ
 **チケットの識別子:** UUID またはチケット番号（数字のみ）。チケット番号を使う場合は team/project の設定が必要。
 
 **state の値:** `unscheduled`, `created`, `started`, `finished`, `delivered`, `accepted`, `rejected`
-**list-type の値:** `done`, `current_backlog`, `icebox`
+**list-type の値:** `done`, `current_backlog`, `icebox`（`tickets list` のフィルタ専用）
 **type の値:** `normal`, `release`
+
+⚠️ **list-type は指定できない。** チケットがどの列に入るかは state（と受入日時）から導出される。
+`tickets create` に `--list-type` は無く、`--state unscheduled` なら icebox、それ以外は current/backlog に入る。
 
 **tickets create のデフォルト値:**
 
 - state: `created`
-- list-type: `current_backlog`
 - type: `normal`
 
 ### コメント
