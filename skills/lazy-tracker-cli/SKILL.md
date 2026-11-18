@@ -60,6 +60,7 @@ lt tickets show <ticket-id-or-number>
 # 作成
 lt tickets create --title "タイトル"
 lt tickets create --title "タイトル" --description "説明" --state started --point 3
+lt tickets create --title "タイトル" --tag bug --tag frontend   # タグを付与（複数回指定可）
 
 # 更新
 lt tickets update <ticket-id-or-number> --state started
@@ -76,6 +77,7 @@ lt tickets delete <ticket-id-or-number> --force   # 確認スキップ
 **state の値:** `unscheduled`, `created`, `started`, `finished`, `delivered`, `accepted`, `rejected`
 **list-type の値:** `done`, `current_backlog`, `icebox`
 **type の値:** `normal`, `release`
+**tag の値:** プロジェクトに存在するタグの名前（完全一致）または ID。存在しないタグを指定するとエラーになり、チケットは作成されない。
 
 **tickets create のデフォルト値:**
 

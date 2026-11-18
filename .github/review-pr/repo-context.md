@@ -22,7 +22,7 @@ Lazy Tracker（プロジェクト管理 SaaS、mk-system 開発。社内利用�
 - マルチテナント分離・ロールベース制御はこのリポジトリのコードには存在しない。認可判定はバックエンド API 側が持つ（`lazy-tracker` リポジトリ側、本リポジトリからは検証不可）
 - 既存の `--team <key>` / `--project <key>` オプションを含め、CLI 側は team/project 識別子の値検証・所属チェックを一切行わず、そのまま API リクエストパスへ渡す設計（`src/commands/tickets/list.ts:91,105,112,119`）。今後 team/project スコープに関わるパラメータを追加するコマンドでも同型になる見込み — 「CLI 側に検証がない」ことそのものは意図された設計であり、severity は常にバックエンド側の認可実装（本リポジトリでは検証不可、❓ になりうる）に依存する
 - データ機密性: ローカルに保存されるのは access/refresh token のみ。mainブランチ時点では全プラットフォームでファイルシステムに平文保存（`README.md` 認証情報の保存場所節、`src/auth/store.ts` の `Conf` ストア）。macOS Keychain 連携は PR#5（未マージ）が提案中
-- リリース運用: CI (`.github/workflows/ci.yaml`) は Lint / Format check / Build のみ。自動テストは存在しない（`src/` 配下に `*.test.ts` / `*.spec.ts` なし、`package.json` に test スクリプトなし）
+- リリース運用: CI (`.github/workflows/ci.yaml`) は lint → format:check → test → build の順に実行する。テストは `bun test`（`src/` 配下の `*.test.ts`）
 - `.github/workflows/ci.yaml` のトリガーは `pull_request`（`pull_request_target` ではない）。外部 fork からの PR で CI が動く際、既定の `GITHUB_TOKEN` は read-only でリポジトリ Secrets は渡らない（GitHub Actions の既定挙動）。よって**フォーク PR の CI 実行時点**での Secrets 窃取は成立しにくいが、**マージ後のリリースビルド時点**（`bun run build:all` 等をメンテナ環境で実行する場面）のリスクは別に残る — 悪意あるコードは CI では検出されず、マージ後に初めて発火しうる
 - `lt` の実行端末は開発者の専有マシンに限らず、共有ホスト（踏み台等）で使われる場面もある（ユーザー確認 2026-08-29）。トークンを標準出力・プロセス引数に露出させる経路は、同一ホストの他ユーザーが `ps` 経由で観測できる前提を置いて評価する
 - mk-system の CI で `lt` を呼ぶ予定は無い（ユーザー確認 2026-08-29）。CI ログ経由のトークン漏洩経路は現時点で成立しないものとして扱う。CI 連携が始まったら本記述は無効
@@ -35,7 +35,7 @@ Lazy Tracker（プロジェクト管理 SaaS、mk-system 開発。社内利用�
 以下は **🔵 改善提案** 止まりとして扱う:
 
 - ローカルファイルシステム上のトークン平文保存そのもの（README で明記済み・利用者への注意喚起あり。既知のリスクとして受容されている状態への指摘）
-- CI（Lint/Format/Build のみ、テストなし）の非改善を理由にした一般的な「テストがない」指摘 — このリポジトリの既知の状態であり、repo-context 追記時点では新規指摘の価値が低い
+- 特定の挙動変化と結び付かない一般的な「テストがない」指摘 — テストは CI で `bun test` が実行されるが、対象は API クライアント・ユーティリティ・照合ロジック等の純粋関数に限られ、コマンド action（`src/commands/`）のテスト基盤は無い。この既知の状態を理由にした指摘は新規指摘の価値が低い
 
 以下は通常通り **🔴 攻撃可能 / 🟡 リスク有** として扱う:
 
