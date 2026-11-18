@@ -9,8 +9,7 @@ export function matchTagIds(tags: TagRef[], inputs: string[]): string[] {
   const unknown: string[] = [];
 
   for (const input of inputs) {
-    // Names are matched before IDs, and IDs are not detected by pattern,
-    // because the API spec does not guarantee any particular ID format.
+    // IDs are not detected by pattern: the API spec does not guarantee any particular ID format.
     const byName = tags.filter((t) => t.name === input);
     if (byName.length > 1) {
       throw new CLIError(
