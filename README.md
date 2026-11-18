@@ -123,6 +123,9 @@ lt tickets create --title "タイトル"
 # 作成（オプション指定）
 lt tickets create --title "タイトル" --state unscheduled --list-type icebox
 
+# 作成（タグ指定）
+lt tickets create --title "タイトル" --tag bug --tag frontend
+
 # 詳細
 lt tickets show <ticket-id>
 
@@ -160,6 +163,7 @@ lt tickets delete <ticket-id> --force
 | `--list-type <type>`       | リストタイプ (done, current_backlog, icebox) | current_backlog |
 | `--point <points>`         | ストーリーポイント                           | -               |
 | `--release-date <date>`    | リリース日 (YYYY-MM-DD)                      | -               |
+| `--tag <name>`             | 付与するタグの名前または ID（複数回指定可）  | -               |
 
 ### コメント
 
