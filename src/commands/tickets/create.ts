@@ -10,6 +10,7 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError, CLIError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import { resolveTagIds } from '../../config/tag.js';
 
 export const createTicketCommand = new Command('create')
   .description('Create a new ticket (JSON output)')
@@ -22,6 +23,12 @@ export const createTicketCommand = new Command('create')
   .option('--list-type <type>', 'List type (done, current_backlog, icebox)', 'current_backlog')
   .option('--point <points>', 'Story points')
   .option('--release-date <date>', 'Release date (YYYY-MM-DD)')
+  .option(
+    '--tag <name>',
+    'Tag name or ID to attach (repeatable)',
+    (value: string, previous: string[]) => [...previous, value],
+    [] as string[]
+  )
   .action(async (options) => {
     const resolved = resolveTeamProject({ team: options.team, project: options.project });
     if (!resolved) {
@@ -78,6 +85,10 @@ export const createTicketCommand = new Command('create')
           throw new CLIError('Release date must be in YYYY-MM-DD format');
         }
         request.releaseDate = options.releaseDate;
+      }
+
+      if (options.tag.length > 0) {
+        request.tagIds = await resolveTagIds(resolved.team, resolved.project, options.tag);
       }
 
       const response = await api.v1TeamsProjectsTicketsCreate(
