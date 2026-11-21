@@ -6,7 +6,6 @@ export interface TokenData {
   refreshToken: string;
   expiresAt: number;
   refreshTokenExpiresAt?: number;
-  scope: string;
 }
 
 export interface ConfigData {

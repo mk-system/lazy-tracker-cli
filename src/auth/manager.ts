@@ -75,7 +75,6 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
     refresh_token: string;
     expires_in: number;
     refresh_token_expires_in?: number;
-    scope: string;
   };
 
   const tokenData: TokenData = {
@@ -85,7 +84,6 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenData> {
     refreshTokenExpiresAt: data.refresh_token_expires_in
       ? Date.now() + data.refresh_token_expires_in * 1000
       : undefined,
-    scope: data.scope,
   };
 
   setTokens(tokenData);
