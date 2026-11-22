@@ -1,5 +1,5 @@
 import open from 'open';
-import { setTokens, type TokenData, getConfig } from './store.js';
+import { setTokens, type TokenData, getConfig, isUsingKeychain } from './store.js';
 import { KeychainError } from './keychain.js';
 import {
   DEFAULT_API_URL,
@@ -118,6 +118,7 @@ export async function pollForToken(
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
           device_code: deviceCode,
           client_id: CLIENT_ID,
+          secure_storage: isUsingKeychain(),
         }),
       });
       debugResponse('POST', url, response.status, Date.now() - startedAt);
