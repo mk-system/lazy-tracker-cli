@@ -6,8 +6,12 @@ describe('stripControlChars', () => {
     expect(stripControlChars('a\u001b[31mb')).toBe('a[31mb');
   });
 
-  test('replaces tabs and newlines with a space and removes other C0 controls and DEL', () => {
+  test('replaces tabs and line breaks with a space and removes other C0 controls and DEL', () => {
     expect(stripControlChars('a\nb\rc\td\u007fe')).toBe('a b c de');
+  });
+
+  test('replaces vertical tabs and form feeds with a space', () => {
+    expect(stripControlChars('a\vb\fc')).toBe('a b c');
   });
 
   test('collapses a CRLF line break into a single space', () => {
