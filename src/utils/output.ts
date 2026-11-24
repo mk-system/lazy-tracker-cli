@@ -67,7 +67,8 @@ export function printTable<T>(data: T[], columns: TableColumn[]): void {
   for (const row of data) {
     const rowObj = row as Record<string, unknown>;
     const values = columns.map((col) => {
-      const value = rowObj[col.key];
+      const raw = rowObj[col.key];
+      const value = typeof raw === 'string' ? stripControlChars(raw) : raw;
       if (col.formatter) {
         return col.formatter(value);
       }
