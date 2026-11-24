@@ -1,6 +1,5 @@
 import { Command } from 'commander';
 import { api } from '../../api/client.js';
-import type { JpMkscLazytrackerApiModelsTagTagResponse as Tag } from '../../api/__generated__/data-contracts.js';
 import { printJson, printTable } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
@@ -26,8 +25,7 @@ export const listTagsCommand = new Command('list')
     try {
       const team = encodePathSegment(resolved.team);
       const project = encodePathSegment(resolved.project);
-      const response = await api.v1TeamsProjectsTagsList(team, project);
-      const tags: Tag[] = response.data;
+      const { data: tags } = await api.v1TeamsProjectsTagsList(team, project);
       succeedSpinner(`Found ${tags.length} tag(s)`);
 
       if (options.table) {
