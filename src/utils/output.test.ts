@@ -34,6 +34,19 @@ describe('stripControlChars with Unicode format characters', () => {
     expect(stripControlChars('a​b‎c‏d e f')).toBe('abcdef');
   });
 
+  test('removes the Arabic letter mark, word joiners, invisible operators, and BOM', () => {
+    expect(stripControlChars('a\u061cb\u2060c\u2064d\ufeffe')).toBe('abcde');
+  });
+
+  test('removes the soft hyphen and the Mongolian vowel separator', () => {
+    expect(stripControlChars('a\u00adb\u180ec')).toBe('abc');
+  });
+
+  test('keeps the tag characters used by subdivision flag emoji', () => {
+    const england = '\u{1f3f4}\u{e0067}\u{e0062}\u{e0065}\u{e006e}\u{e0067}\u{e007f}';
+    expect(stripControlChars(england)).toBe(england);
+  });
+
   test('keeps the zero-width joiner used by emoji sequences', () => {
     expect(stripControlChars('👨‍👩')).toBe('👨‍👩');
   });

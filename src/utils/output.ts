@@ -24,7 +24,7 @@ export function dim(message: string): void {
 // ZWJ (U+200D) is kept because emoji sequences depend on it.
 /* eslint-disable no-control-regex -- matching control characters is the point */
 const CONTROL_CHARS =
-  /[\u0000-\u001f\u007f-\u009f\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
+  /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
 /* eslint-enable no-control-regex */
 
 export function stripControlChars(text: string): string {
