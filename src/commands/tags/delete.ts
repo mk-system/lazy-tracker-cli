@@ -33,7 +33,6 @@ export const deleteTagCommand = new Command('delete')
       succeedSpinner(`Found tag "${stripControlChars(tag.name)}"`);
 
       if (!options.force) {
-        // A readline prompt would hang an agent or a pipeline waiting on stdin.
         if (!process.stdin.isTTY) {
           throw new CLIError('Refusing to delete without --force in a non-interactive session.');
         }

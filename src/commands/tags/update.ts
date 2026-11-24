@@ -30,7 +30,7 @@ export const updateTagCommand = new Command('update')
       const name = normalizeTagName(options.name);
       const { data: tags } = await api.v1TeamsProjectsTagsList(team, project);
       const tag = matchTag(tags, tagNameOrId);
-      // The server reports a duplicate name as a misleading 404, so reject it up front.
+      // The server answers a duplicate tag name with 404, not 409.
       assertTagNameAvailable(tags, name);
 
       const response = await api.v1TeamsProjectsTagsUpdate(
