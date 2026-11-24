@@ -21,6 +21,13 @@ export function dim(message: string): void {
   console.log(chalk.dim(message));
 }
 
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/g;
+
+export function stripControlChars(text: string): string {
+  return text.replace(CONTROL_CHARS, '');
+}
+
 export async function printJson(data: unknown): Promise<void> {
   // Workaround for Bun bug: chalk/ora access tty.isatty(1) at import time,
   // which causes console.log output to be truncated when stdout is piped.
@@ -64,7 +71,7 @@ export function printTable<T>(data: T[], columns: TableColumn[]): void {
       if (col.formatter) {
         return col.formatter(value);
       }
-      return String(value ?? '');
+      return stripControlChars(String(value ?? ''));
     });
     table.push(values);
   }

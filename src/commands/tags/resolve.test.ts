@@ -54,6 +54,13 @@ describe('matchTag', () => {
     );
   });
 
+  test('strips control characters from the available tag names', () => {
+    const spoofed = { id: 'a1b2c3d4-0000-0000-0000-000000000005', name: 'evil\u001b[2Jname' };
+    expect(() => matchTag([spoofed], 'chore')).toThrow(
+      'Unknown tag: chore. Available tags: evil[2Jname'
+    );
+  });
+
   test('rejects an unknown tag with a dedicated message when the project has no tags', () => {
     expect(() => matchTag([], 'bug')).toThrow('Unknown tag: bug. This project has no tags.');
   });

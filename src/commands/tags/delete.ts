@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { api } from '../../api/client.js';
-import { printJson } from '../../utils/output.js';
+import { printJson, stripControlChars } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError, CLIError } from '../../utils/errors.js';
 import { confirm } from '../../utils/confirm.js';
@@ -30,7 +30,7 @@ export const deleteTagCommand = new Command('delete')
     try {
       const { data: tags } = await api.v1TeamsProjectsTagsList(team, project);
       const tag = matchTag(tags, tagNameOrId);
-      succeedSpinner(`Found tag "${tag.name}"`);
+      succeedSpinner(`Found tag "${stripControlChars(tag.name)}"`);
 
       if (!options.force) {
         // A readline prompt would hang an agent or a pipeline waiting on stdin.

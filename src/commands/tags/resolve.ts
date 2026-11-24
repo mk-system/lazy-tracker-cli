@@ -1,5 +1,6 @@
 import type { JpMkscLazytrackerApiModelsTagTagResponse as Tag } from '../../api/__generated__/data-contracts.js';
 import { CLIError } from '../../utils/errors.js';
+import { stripControlChars } from '../../utils/output.js';
 
 const MAX_TAG_NAME_LENGTH = 255;
 
@@ -30,7 +31,7 @@ export function matchTag<T extends TagRef>(tags: T[], input: string): T {
     throw new CLIError(`Unknown tag: ${input}. This project has no tags.`);
   }
   throw new CLIError(
-    `Unknown tag: ${input}. Available tags: ${tags.map((t) => t.name).join(', ')}`
+    `Unknown tag: ${input}. Available tags: ${tags.map((t) => stripControlChars(t.name)).join(', ')}`
   );
 }
 
