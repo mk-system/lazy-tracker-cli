@@ -188,6 +188,19 @@ lt comments delete <chat-id> --force
 
 `list` / `add` はチケット ID (UUID) のほかにチケット番号も受け付ける。チケット番号はプロジェクト内でのみ一意なため、`--team` / `--project` または `.lazy-tracker.json` による team/project の解決が必要になる。`update` / `delete` はチケットではなくコメント ID (`<chat-id>`) を対象とするため、番号指定はできない。
 
+### タグ
+
+```bash
+# 一覧
+lt tags list
+lt tags list --table
+
+# 作成
+lt tags create --name bug
+```
+
+タグはプロジェクト単位で管理され、名前はプロジェクト内で一意になる。`create` は冪等で、同名のタグが既にあれば新規作成せず既存のタグを返す。チケットの `tagIds` に対応するタグ名は `lt tags list` で確認できる。
+
 ### スキル（コーディングエージェント連携）
 
 `lt skills` コマンドで、コーディングエージェント（Claude Code, Codex, Copilot, Cursor）に `lt` を利用したチケット管理のスキルをインストールすることができる。具体的には、コマンドの使い方やチケット駆動開発のワークフローを理解できるようになる。
