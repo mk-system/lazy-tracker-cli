@@ -18,3 +18,17 @@ describe('stripControlChars', () => {
     expect(stripControlChars('バグ 修正')).toBe('バグ 修正');
   });
 });
+
+describe('stripControlChars with Unicode format characters', () => {
+  test('removes bidi overrides and isolates', () => {
+    expect(stripControlChars('a‮b⁦c⁩')).toBe('abc');
+  });
+
+  test('removes zero-width spaces, direction marks, and line separators', () => {
+    expect(stripControlChars('a​b‎c‏d e f')).toBe('abcdef');
+  });
+
+  test('keeps the zero-width joiner used by emoji sequences', () => {
+    expect(stripControlChars('👨‍👩')).toBe('👨‍👩');
+  });
+});
