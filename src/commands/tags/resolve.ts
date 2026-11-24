@@ -17,7 +17,12 @@ export function normalizeTagName(name: string): string {
 type TagRef = Pick<Tag, 'id' | 'name'>;
 
 export function matchTag<T extends TagRef>(tags: T[], input: string): T {
-  const tag = tags.find((t) => t.name === input) ?? tags.find((t) => t.id === input);
+  const byName = tags.find((t) => t.name === input);
+  const byId = tags.find((t) => t.id === input);
+  if (byName && byId && byName !== byId) {
+    throw new CLIError(`Ambiguous tag: ${input} matches one tag by name and another by ID.`);
+  }
+  const tag = byName ?? byId;
   if (tag) {
     return tag;
   }

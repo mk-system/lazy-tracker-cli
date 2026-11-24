@@ -31,9 +31,17 @@ describe('matchTag', () => {
     expect(matchTag([bug, feature], bug.id)).toBe(bug);
   });
 
-  test('prefers a name match over an ID match', () => {
+  test('rejects input that matches one tag by name and another by ID', () => {
     const namedLikeId = { id: 'a1b2c3d4-0000-0000-0000-000000000003', name: bug.id };
-    expect(matchTag([bug, namedLikeId], bug.id)).toBe(namedLikeId);
+    expect(() => matchTag([bug, namedLikeId], bug.id)).toThrow(`Ambiguous tag: ${bug.id}`);
+  });
+
+  test('accepts a tag whose name equals its own ID', () => {
+    const self = {
+      id: 'a1b2c3d4-0000-0000-0000-000000000004',
+      name: 'a1b2c3d4-0000-0000-0000-000000000004',
+    };
+    expect(matchTag([self], self.id)).toBe(self);
   });
 
   test('matches names case-sensitively', () => {
