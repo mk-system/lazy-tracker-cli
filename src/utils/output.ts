@@ -21,15 +21,22 @@ export function dim(message: string): void {
   console.log(chalk.dim(message));
 }
 
-// Emoji ZWJ sequences need U+200D and subdivision flags need tag characters
-// (U+E0020-E007F), so both must stay out of this set.
+// Emoji ZWJ sequences need U+200D, so it must stay out of this set.
 /* eslint-disable no-control-regex */
 const CONTROL_CHARS =
   /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
 /* eslint-enable no-control-regex */
 
+// A subdivision flag is U+1F3F4, a 3-7 character subdivision id in tag characters,
+// and U+E007F (UTS #51). Tag characters anywhere else render as nothing.
+const STRAY_TAG_CHARS =
+  /(\u{1f3f4}[\u{e0030}-\u{e0039}\u{e0061}-\u{e007a}]{3,7}\u{e007f})|[\u{e0000}-\u{e007f}]/gu;
+
 export function stripControlChars(text: string): string {
-  return text.replace(/[\t\n\v\f\r\u0085\u2028\u2029]+/g, ' ').replace(CONTROL_CHARS, '');
+  return text
+    .replace(/[\t\n\v\f\r\u0085\u2028\u2029]+/g, ' ')
+    .replace(CONTROL_CHARS, '')
+    .replace(STRAY_TAG_CHARS, (_match, flag: string | undefined) => flag ?? '');
 }
 
 export async function printJson(data: unknown): Promise<void> {

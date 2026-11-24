@@ -50,9 +50,22 @@ describe('stripControlChars with Unicode format characters', () => {
     expect(stripControlChars('a\u00adb\u180ec')).toBe('abc');
   });
 
-  test('keeps the tag characters used by subdivision flag emoji', () => {
+  test('keeps the tag characters of a subdivision flag', () => {
     const england = '\u{1f3f4}\u{e0067}\u{e0062}\u{e0065}\u{e006e}\u{e0067}\u{e007f}';
     expect(stripControlChars(england)).toBe(england);
+  });
+
+  test('removes tag characters outside a subdivision flag', () => {
+    expect(stripControlChars('a\u{e0068}\u{e0069}b')).toBe('ab');
+  });
+
+  test('keeps only the black flag when the tag sequence is unterminated', () => {
+    expect(stripControlChars('\u{1f3f4}\u{e0067}\u{e0062}\u{e0065}x')).toBe('\u{1f3f4}x');
+  });
+
+  test('keeps only the black flag when the tag sequence is too long to be a subdivision id', () => {
+    const tooLong = '\u{e0061}'.repeat(8);
+    expect(stripControlChars(`\u{1f3f4}${tooLong}\u{e007f}`)).toBe('\u{1f3f4}');
   });
 
   test('keeps the zero-width joiner used by emoji sequences', () => {
