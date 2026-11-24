@@ -12,7 +12,7 @@ export async function confirm(
     rl.once('close', () => resolve(false));
     rl.question(`${stripControlChars(message)} (y/N): `, (answer) => {
       const normalized = answer.trim().toLowerCase();
-      // rl.close() emits 'close' synchronously, so resolve first.
+      // rl.close() emits 'close' synchronously.
       resolve(normalized === 'y' || normalized === 'yes');
       rl.close();
     });
