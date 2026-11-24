@@ -4,6 +4,7 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import { encodePathSegment } from '../../utils/path.js';
 import { assertTagNameAvailable, matchTag, normalizeTagName } from './resolve.js';
 
 export const updateTagCommand = new Command('update')
@@ -21,12 +22,11 @@ export const updateTagCommand = new Command('update')
       process.exit(1);
     }
 
-    const team = encodeURIComponent(resolved.team);
-    const project = encodeURIComponent(resolved.project);
-
     startSpinner('Updating tag...');
 
     try {
+      const team = encodePathSegment(resolved.team);
+      const project = encodePathSegment(resolved.project);
       const name = normalizeTagName(options.name);
       const { data: tags } = await api.v1TeamsProjectsTagsList(team, project);
       const tag = matchTag(tags, tagNameOrId);
@@ -36,7 +36,7 @@ export const updateTagCommand = new Command('update')
       const response = await api.v1TeamsProjectsTagsUpdate(
         team,
         project,
-        encodeURIComponent(tag.id),
+        encodePathSegment(tag.id),
         { name }
       );
       succeedSpinner('Tag updated');

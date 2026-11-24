@@ -4,6 +4,7 @@ import { printJson } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import { encodePathSegment } from '../../utils/path.js';
 import { normalizeTagName } from './resolve.js';
 
 export const createTagCommand = new Command('create')
@@ -20,12 +21,11 @@ export const createTagCommand = new Command('create')
       process.exit(1);
     }
 
-    const team = encodeURIComponent(resolved.team);
-    const project = encodeURIComponent(resolved.project);
-
     startSpinner('Creating tag...');
 
     try {
+      const team = encodePathSegment(resolved.team);
+      const project = encodePathSegment(resolved.project);
       const name = normalizeTagName(options.name);
       const response = await api.v1TeamsProjectsTagsCreate(team, project, {
         name,

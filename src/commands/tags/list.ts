@@ -5,6 +5,7 @@ import { printJson, printTable } from '../../utils/output.js';
 import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.js';
 import { formatError } from '../../utils/errors.js';
 import { resolveTeamProject } from '../../config/project.js';
+import { encodePathSegment } from '../../utils/path.js';
 
 export const listTagsCommand = new Command('list')
   .description('List tags in a project (JSON output by default)')
@@ -20,12 +21,11 @@ export const listTagsCommand = new Command('list')
       process.exit(1);
     }
 
-    const team = encodeURIComponent(resolved.team);
-    const project = encodeURIComponent(resolved.project);
-
     startSpinner('Fetching tags...');
 
     try {
+      const team = encodePathSegment(resolved.team);
+      const project = encodePathSegment(resolved.project);
       const response = await api.v1TeamsProjectsTagsList(team, project);
       const tags: Tag[] = response.data;
       succeedSpinner(`Found ${tags.length} tag(s)`);

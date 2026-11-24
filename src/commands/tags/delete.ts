@@ -5,6 +5,7 @@ import { startSpinner, succeedSpinner, failSpinner } from '../../utils/spinner.j
 import { formatError, CLIError } from '../../utils/errors.js';
 import { confirm } from '../../utils/confirm.js';
 import { resolveTeamProject } from '../../config/project.js';
+import { encodePathSegment } from '../../utils/path.js';
 import { matchTag } from './resolve.js';
 
 export const deleteTagCommand = new Command('delete')
@@ -22,12 +23,11 @@ export const deleteTagCommand = new Command('delete')
       process.exit(1);
     }
 
-    const team = encodeURIComponent(resolved.team);
-    const project = encodeURIComponent(resolved.project);
-
     startSpinner('Looking up tag...');
 
     try {
+      const team = encodePathSegment(resolved.team);
+      const project = encodePathSegment(resolved.project);
       const { data: tags } = await api.v1TeamsProjectsTagsList(team, project);
       const tag = matchTag(tags, tagNameOrId);
       succeedSpinner(`Found tag "${stripControlChars(tag.name)}"`);
@@ -46,7 +46,7 @@ export const deleteTagCommand = new Command('delete')
       }
 
       startSpinner('Deleting tag...');
-      await api.v1TeamsProjectsTagsDelete(team, project, encodeURIComponent(tag.id));
+      await api.v1TeamsProjectsTagsDelete(team, project, encodePathSegment(tag.id));
       succeedSpinner('Tag deleted');
 
       await printJson({
