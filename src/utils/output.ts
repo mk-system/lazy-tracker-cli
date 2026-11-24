@@ -29,7 +29,7 @@ const CONTROL_CHARS =
 /* eslint-enable no-control-regex */
 
 export function stripControlChars(text: string): string {
-  return text.replace(/[\t\n\r]+/g, ' ').replace(CONTROL_CHARS, '');
+  return text.replace(/[\t\n\r\u0085\u2028\u2029]+/g, ' ').replace(CONTROL_CHARS, '');
 }
 
 export async function printJson(data: unknown): Promise<void> {

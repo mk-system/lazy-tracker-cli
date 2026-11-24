@@ -30,8 +30,12 @@ describe('stripControlChars with Unicode format characters', () => {
     expect(stripControlChars('a‮b⁦c⁩')).toBe('abc');
   });
 
-  test('removes zero-width spaces, direction marks, and line separators', () => {
-    expect(stripControlChars('a​b‎c‏d e f')).toBe('abcdef');
+  test('removes zero-width spaces and direction marks', () => {
+    expect(stripControlChars('a\u200bb\u200ec\u200fd')).toBe('abcd');
+  });
+
+  test('replaces line and paragraph separators and NEL with a space', () => {
+    expect(stripControlChars('a\u2028b\u2029c\u0085d')).toBe('a b c d');
   });
 
   test('removes the Arabic letter mark, word joiners, invisible operators, and BOM', () => {
