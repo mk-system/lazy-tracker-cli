@@ -21,19 +21,22 @@ export const updateTagCommand = new Command('update')
       process.exit(1);
     }
 
+    const team = encodeURIComponent(resolved.team);
+    const project = encodeURIComponent(resolved.project);
+
     startSpinner('Updating tag...');
 
     try {
       const name = normalizeTagName(options.name);
-      const { data: tags } = await api.v1TeamsProjectsTagsList(resolved.team, resolved.project);
+      const { data: tags } = await api.v1TeamsProjectsTagsList(team, project);
       const tag = matchTag(tags, tagNameOrId);
       // The server reports a duplicate name as a misleading 404, so reject it up front.
       assertTagNameAvailable(tags, name);
 
       const response = await api.v1TeamsProjectsTagsUpdate(
-        resolved.team,
-        resolved.project,
-        tag.id,
+        team,
+        project,
+        encodeURIComponent(tag.id),
         { name }
       );
       succeedSpinner('Tag updated');

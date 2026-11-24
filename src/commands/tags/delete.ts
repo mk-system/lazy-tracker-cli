@@ -22,10 +22,13 @@ export const deleteTagCommand = new Command('delete')
       process.exit(1);
     }
 
+    const team = encodeURIComponent(resolved.team);
+    const project = encodeURIComponent(resolved.project);
+
     startSpinner('Looking up tag...');
 
     try {
-      const { data: tags } = await api.v1TeamsProjectsTagsList(resolved.team, resolved.project);
+      const { data: tags } = await api.v1TeamsProjectsTagsList(team, project);
       const tag = matchTag(tags, tagNameOrId);
       succeedSpinner(`Found tag "${tag.name}"`);
 
@@ -44,7 +47,7 @@ export const deleteTagCommand = new Command('delete')
       }
 
       startSpinner('Deleting tag...');
-      await api.v1TeamsProjectsTagsDelete(resolved.team, resolved.project, tag.id);
+      await api.v1TeamsProjectsTagsDelete(team, project, encodeURIComponent(tag.id));
       succeedSpinner('Tag deleted');
 
       await printJson({

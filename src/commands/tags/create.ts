@@ -20,11 +20,14 @@ export const createTagCommand = new Command('create')
       process.exit(1);
     }
 
+    const team = encodeURIComponent(resolved.team);
+    const project = encodeURIComponent(resolved.project);
+
     startSpinner('Creating tag...');
 
     try {
       const name = normalizeTagName(options.name);
-      const response = await api.v1TeamsProjectsTagsCreate(resolved.team, resolved.project, {
+      const response = await api.v1TeamsProjectsTagsCreate(team, project, {
         name,
       });
       succeedSpinner('Tag created');

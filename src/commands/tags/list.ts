@@ -20,10 +20,13 @@ export const listTagsCommand = new Command('list')
       process.exit(1);
     }
 
+    const team = encodeURIComponent(resolved.team);
+    const project = encodeURIComponent(resolved.project);
+
     startSpinner('Fetching tags...');
 
     try {
-      const response = await api.v1TeamsProjectsTagsList(resolved.team, resolved.project);
+      const response = await api.v1TeamsProjectsTagsList(team, project);
       const tags: Tag[] = response.data;
       succeedSpinner(`Found ${tags.length} tag(s)`);
 
