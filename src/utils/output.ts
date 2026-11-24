@@ -23,7 +23,7 @@ export function dim(message: string): void {
 
 // Emoji ZWJ sequences need U+200D and subdivision flags need tag characters
 // (U+E0020-E007F), so both must stay out of this set.
-/* eslint-disable no-control-regex -- matching control characters is the point */
+/* eslint-disable no-control-regex */
 const CONTROL_CHARS =
   /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g;
 /* eslint-enable no-control-regex */
