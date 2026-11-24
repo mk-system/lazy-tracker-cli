@@ -10,6 +10,26 @@
  * ---------------------------------------------------------------
  */
 
+/** GitHubIssueStateFilter */
+export type JpMkscLazytrackerCoreModelsGitHubIssueStateFilter =
+  | "all"
+  | "open"
+  | "closed";
+
+/** GitHubImportJobStatus */
+export type JpMkscLazytrackerCoreModelsGitHubImportJobStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed";
+
+/** ExternalLinkStatusEnum */
+export type JpMkscLazytrackerApiModelsCommonExternalLinkStatusEnum =
+  | "open"
+  | "draft"
+  | "merged"
+  | "closed";
+
 /** TicketState */
 export type JpMkscLazytrackerCoreModelsTicketState =
   | "unscheduled"
@@ -19,6 +39,11 @@ export type JpMkscLazytrackerCoreModelsTicketState =
   | "rejected"
   | "accepted"
   | "delivered";
+
+/** AnchorPlacementEnum */
+export type JpMkscLazytrackerApiModelsCommonAnchorPlacementEnum =
+  | "above"
+  | "below";
 
 /** TicketTypeEnum */
 export type JpMkscLazytrackerApiModelsCommonTicketTypeEnum =
@@ -63,6 +88,8 @@ export interface JpMkscLazytrackerApiModelsUserUserResponse {
   /** String */
   email: string;
   /** Boolean */
+  emailDeliveryFailed: boolean;
+  /** Boolean */
   emailVerified: boolean;
   /** String */
   id: string;
@@ -82,8 +109,6 @@ export interface JpMkscLazytrackerApiModelsUserUserResponse {
 /** LoginResponse */
 export interface JpMkscLazytrackerApiModelsUserLoginResponse {
   /** String */
-  message: string;
-  /** String */
   redirectUrl: string;
   user: JpMkscLazytrackerApiModelsUserUserResponse;
 }
@@ -95,20 +120,32 @@ export interface JpMkscLazytrackerApiModelsCommonExceptionInfo {
   /** String */
   exceptionType?: null | string;
   /** List<String> */
-  stackTrace?: null | any[];
+  stackTrace?: null | string[];
 }
 
 /** ErrorResponse */
 export interface JpMkscLazytrackerApiModelsCommonErrorResponse {
   /** Map<String,String> */
-  details?: null | object;
+  details?: null | Record<string, string>;
   /** String */
   errorCode: string;
   exceptionInfo?: null | JpMkscLazytrackerApiModelsCommonExceptionInfo;
   /** String */
-  message: string;
-  /** String */
   status: string;
+}
+
+/** EmailLookupRequest */
+export interface JpMkscLazytrackerApiModelsUserEmailLookupRequest {
+  /** String */
+  password: string;
+  /** String */
+  username: string;
+}
+
+/** EmailLookupResponse */
+export interface JpMkscLazytrackerApiModelsUserEmailLookupResponse {
+  /** String */
+  email: string;
 }
 
 /** EmailVerificationRequest */
@@ -137,13 +174,71 @@ export interface JpMkscLazytrackerApiModelsUserCompleteRegistrationRequest {
   username: string;
 }
 
-/** SuccessResponse<Int> */
-export interface JpMkscLazytrackerApiModelsCommonSuccessResponseKotlinInt {
+/** PasswordResetRequest */
+export interface JpMkscLazytrackerApiModelsUserPasswordResetRequest {
+  /** String */
+  email: string;
+}
+
+/** PasswordResetConfirmRequest */
+export interface JpMkscLazytrackerApiModelsUserPasswordResetConfirmRequest {
+  /** String */
+  password: string;
+  /** String */
+  token: string;
+}
+
+/** EmailChangeConfirmRequest */
+export interface JpMkscLazytrackerApiModelsUserEmailChangeConfirmRequest {
+  /** String */
+  token: string;
+}
+
+/** AccountDeleteRequest */
+export interface JpMkscLazytrackerApiModelsUserAccountDeleteRequest {
+  /** String */
+  email: string;
+}
+
+/** StatusResponse */
+export interface JpMkscLazytrackerApiModelsCommonStatusResponse {
+  /** String */
+  buildHash: string;
+}
+
+/** SuccessResponse<StatusResponse> */
+export interface JpMkscLazytrackerApiModelsCommonSuccessResponseJpMkscLazytrackerApiModelsCommonStatusResponse {
+  data: JpMkscLazytrackerApiModelsCommonStatusResponse;
+  /** String */
+  status: string;
+}
+
+/** ConstraintsResponse */
+export interface JpMkscLazytrackerApiModelsCommonConstraintsResponse {
+  password: JpMkscLazytrackerApiModelsCommonPasswordConstraints;
+}
+
+/** PasswordConstraints */
+export interface JpMkscLazytrackerApiModelsCommonPasswordConstraints {
+  /** String */
+  description: string;
   /**
    * Int
    * @format int32
    */
-  data: number;
+  maxLength: number;
+  /**
+   * Int
+   * @format int32
+   */
+  minLength: number;
+  /** String */
+  pattern: string;
+}
+
+/** SuccessResponse<ConstraintsResponse> */
+export interface JpMkscLazytrackerApiModelsCommonSuccessResponseJpMkscLazytrackerApiModelsCommonConstraintsResponse {
+  data: JpMkscLazytrackerApiModelsCommonConstraintsResponse;
   /** String */
   status: string;
 }
@@ -169,8 +264,6 @@ export interface JpMkscLazytrackerApiModelsTeamInvitationInfoResponse {
 export interface JpMkscLazytrackerApiModelsTeamAcceptInvitationResponse {
   /** String */
   errorCode?: null | string;
-  /** String */
-  message: string;
   /** Boolean */
   success: boolean;
   /** String */
@@ -217,6 +310,8 @@ export interface JpMkscLazytrackerApiModelsOauthTokenRequest {
   grantType: string;
   /** String */
   refreshToken?: null | string;
+  /** Boolean */
+  secureStorage: boolean;
 }
 
 /** TokenResponse */
@@ -230,8 +325,11 @@ export interface JpMkscLazytrackerApiModelsOauthTokenResponse {
   expiresIn: number;
   /** String */
   refreshToken: string;
-  /** String */
-  scope: string;
+  /**
+   * Int
+   * @format int32
+   */
+  refreshTokenExpiresIn: number;
   /** String */
   tokenType: string;
 }
@@ -242,30 +340,6 @@ export interface JpMkscLazytrackerApiModelsOauthRevokeRequest {
   token: string;
   /** String */
   tokenTypeHint?: null | string;
-}
-
-/** DeviceVerifyRequest */
-export interface JpMkscLazytrackerApiModelsOauthDeviceVerifyRequest {
-  /** String */
-  userCode: string;
-}
-
-/** DeviceCodeInfoResponse */
-export interface JpMkscLazytrackerApiModelsOauthDeviceCodeInfoResponse {
-  /** String */
-  clientName: string;
-  /** List<String> */
-  scopeDescriptions: string[];
-  /** List<String> */
-  scopes: string[];
-}
-
-/** DeviceAuthorizeRequest */
-export interface JpMkscLazytrackerApiModelsOauthDeviceAuthorizeRequest {
-  /** Boolean */
-  approve: boolean;
-  /** String */
-  userCode: string;
 }
 
 /** UserRegistrationRequest */
@@ -301,17 +375,15 @@ export interface JpMkscLazytrackerApiModelsUserSystemAdminUpdateRequest {
 /** UserUpdateRequest */
 export interface JpMkscLazytrackerApiModelsUserUserUpdateRequest {
   /** String */
-  avatarUrl?: null | string;
-  /** String */
   displayName?: null | string;
   /** String */
   email?: null | string;
-  /** String */
-  username?: null | string;
 }
 
 /** PasswordUpdateRequest */
 export interface JpMkscLazytrackerApiModelsUserPasswordUpdateRequest {
+  /** String */
+  currentPassword: string;
   /** String */
   password: string;
 }
@@ -327,6 +399,8 @@ export interface JpMkscLazytrackerApiModelsTeamTeamResponse {
   description?: null | string;
   /** String */
   id: string;
+  /** String */
+  ownerId: string;
   /** String */
   teamKey: string;
   /**
@@ -352,6 +426,8 @@ export interface JpMkscLazytrackerApiModelsTeamTeamMemberResponse {
   displayName: string;
   /** String */
   email: string;
+  /** Boolean */
+  isOwner: boolean;
   /**
    * Long
    * @format int64
@@ -363,6 +439,20 @@ export interface JpMkscLazytrackerApiModelsTeamTeamMemberResponse {
   userId: string;
   /** String */
   userName: string;
+}
+
+/** TeamStorageUsageResponse */
+export interface JpMkscLazytrackerApiModelsTeamTeamStorageUsageResponse {
+  /**
+   * Long
+   * @format int64
+   */
+  limitBytes: number;
+  /**
+   * Long
+   * @format int64
+   */
+  usedBytes: number;
 }
 
 /** CreateInvitationRequest */
@@ -432,6 +522,12 @@ export interface JpMkscLazytrackerApiModelsTeamTeamMemberRoleUpdateRequest {
   role: string;
 }
 
+/** TransferOwnershipRequest */
+export interface JpMkscLazytrackerApiModelsTeamTransferOwnershipRequest {
+  /** String */
+  newOwnerId: string;
+}
+
 /** ProjectCreateByTeamKeyRequest */
 export interface JpMkscLazytrackerApiModelsProjectProjectCreateByTeamKeyRequest {
   /** String */
@@ -456,8 +552,11 @@ export interface JpMkscLazytrackerApiModelsProjectProjectResponse {
   createdAt: number;
   /** String */
   description?: null | string;
-  /** String */
-  estimatedWeeks?: null | string;
+  /**
+   * Int
+   * @format int32
+   */
+  estimatedWeeks?: null | number;
   /** String */
   id: string;
   /** Boolean */
@@ -566,8 +665,96 @@ export interface JpMkscLazytrackerApiModelsCommonSuccessResponseKotlinCollection
   status: string;
 }
 
+/** RecentProjectResponse */
+export interface JpMkscLazytrackerApiModelsActivityRecentProjectResponse {
+  /** String */
+  description?: null | string;
+  /** String */
+  id: string;
+  /**
+   * Long
+   * @format int64
+   */
+  lastActivityAt: number;
+  /** String */
+  projectKey: string;
+  /** String */
+  teamId: string;
+  /** String */
+  teamKey: string;
+}
+
+/** RecentTeamResponse */
+export interface JpMkscLazytrackerApiModelsActivityRecentTeamResponse {
+  /** String */
+  description?: null | string;
+  /** String */
+  id: string;
+  /**
+   * Long
+   * @format int64
+   */
+  lastActivityAt: number;
+  /** String */
+  teamKey: string;
+}
+
+/** FavoriteProjectResponse */
+export interface JpMkscLazytrackerApiModelsFavoriteFavoriteProjectResponse {
+  /** String */
+  id: string;
+  /** String */
+  projectKey: string;
+  /** String */
+  teamId: string;
+  /** String */
+  teamKey: string;
+}
+
+/** AdminTeamWithBillingResponse */
+export interface JpMkscLazytrackerApiModelsAdminAdminTeamWithBillingResponse {
+  /** Boolean */
+  billingExempt: boolean;
+  /** String */
+  billingStatus: string;
+  /**
+   * Long
+   * @format int64
+   */
+  createdAt: number;
+  /** String */
+  description?: null | string;
+  /** String */
+  id: string;
+  /** String */
+  ownerId: string;
+  /**
+   * Long
+   * @format int64
+   */
+  payableSeatCount: number;
+  /** String */
+  teamKey: string;
+  /**
+   * Long
+   * @format int64
+   */
+  updatedAt: number;
+}
+
+/** AdminBillingExemptUpdateRequest */
+export interface JpMkscLazytrackerApiModelsAdminAdminBillingExemptUpdateRequest {
+  /** Boolean */
+  billingExempt: boolean;
+}
+
 /** TicketResponse */
 export interface JpMkscLazytrackerApiModelsTicketTicketResponse {
+  /**
+   * Long
+   * @format int64
+   */
+  acceptedAt?: null | number;
   /** List<String> */
   assigneeIds: string[];
   /**
@@ -577,11 +764,6 @@ export interface JpMkscLazytrackerApiModelsTicketTicketResponse {
   createdAt: number;
   /** String */
   description: string;
-  /**
-   * Long
-   * @format int64
-   */
-  finishedAt?: null | number;
   /** String */
   id: string;
   listType: JpMkscLazytrackerApiModelsCommonTicketListTypeEnum;
@@ -603,6 +785,11 @@ export interface JpMkscLazytrackerApiModelsTicketTicketResponse {
   projectKey: string;
   /** String */
   releaseDate?: null | string;
+  /**
+   * Long
+   * @format int64
+   */
+  startedAt?: null | number;
   state: JpMkscLazytrackerApiModelsCommonTicketStateEnum;
   /** List<String> */
   tagIds: string[];
@@ -625,6 +812,9 @@ export interface JpMkscLazytrackerApiModelsTicketTicketResponse {
 
 /** TicketCreateRequest */
 export interface JpMkscLazytrackerApiModelsTicketTicketCreateRequest {
+  anchorPlacement?: null | JpMkscLazytrackerApiModelsCommonAnchorPlacementEnum;
+  /** String */
+  anchorTicketId?: null | string;
   /** List<String> */
   assigneeIds: string[];
   /** String */
@@ -643,6 +833,59 @@ export interface JpMkscLazytrackerApiModelsTicketTicketCreateRequest {
   ticketType: JpMkscLazytrackerApiModelsCommonTicketTypeEnum;
   /** String */
   title: string;
+}
+
+/** BulkUpdateTagsRequest */
+export interface JpMkscLazytrackerApiModelsTicketBulkUpdateTagsRequest {
+  /** List<String> */
+  addTagIds: string[];
+  /** List<String> */
+  removeTagIds: string[];
+  /** List<String> */
+  ticketIds: string[];
+}
+
+/** BulkOperationResponse */
+export interface JpMkscLazytrackerApiModelsTicketBulkOperationResponse {
+  /** Map<String,String> */
+  errors: Record<string, string>;
+  /** List<String> */
+  failedTicketIds: string[];
+  /**
+   * Int
+   * @format int32
+   */
+  failureCount: number;
+  /**
+   * Int
+   * @format int32
+   */
+  successCount: number;
+}
+
+/** BulkDeleteRequest */
+export interface JpMkscLazytrackerApiModelsTicketBulkDeleteRequest {
+  /** List<String> */
+  ticketIds: string[];
+}
+
+/** BulkMoveRequest */
+export interface JpMkscLazytrackerApiModelsTicketBulkMoveRequest {
+  /** String */
+  afterTicketId?: null | string;
+  /** String */
+  beforeTicketId?: null | string;
+  targetListType: JpMkscLazytrackerApiModelsCommonTicketListTypeEnum;
+  /** List<String> */
+  ticketIds: string[];
+}
+
+/** BulkAssignRequest */
+export interface JpMkscLazytrackerApiModelsTicketBulkAssignRequest {
+  /** String */
+  assigneeId: string;
+  /** List<String> */
+  ticketIds: string[];
 }
 
 /** PositionStatsResponse */
@@ -695,8 +938,43 @@ export interface JpMkscLazytrackerApiModelsTicketRebalanceResponse {
   totalTickets: number;
 }
 
+/** TicketActivityResponse */
+export interface JpMkscLazytrackerApiModelsTicketTicketActivityResponse {
+  /** Map<String,FieldChangeResponse> */
+  changes?: null | Record<
+    string,
+    JpMkscLazytrackerApiModelsTicketFieldChangeResponse
+  >;
+  /**
+   * Long
+   * @format int64
+   */
+  createdAt: number;
+  /** String */
+  eventType: string;
+  /**
+   * Long
+   * @format int64
+   */
+  id: number;
+  /** String */
+  title?: null | string;
+  /** String */
+  userId: string;
+}
+
+/** FieldChangeResponse */
+export interface JpMkscLazytrackerApiModelsTicketFieldChangeResponse {
+  /** String */
+  new?: null | string;
+  /** String */
+  old?: null | string;
+}
+
 /** TicketUpdateRequest */
 export interface JpMkscLazytrackerApiModelsTicketTicketUpdateRequest {
+  /** Boolean */
+  clearPoint?: null | boolean;
   /** String */
   description?: null | string;
   listType?: null | JpMkscLazytrackerApiModelsCommonTicketListTypeEnum;
@@ -714,7 +992,8 @@ export interface JpMkscLazytrackerApiModelsTicketTicketUpdateRequest {
   releaseDate?: null | string;
   state?: null | JpMkscLazytrackerApiModelsCommonTicketStateEnum;
   /** List<String> */
-  tagIds?: null | any[];
+  tagIds?: null | string[];
+  ticketType?: null | JpMkscLazytrackerApiModelsCommonTicketTypeEnum;
   /** String */
   title?: null | string;
 }
@@ -733,46 +1012,6 @@ export interface JpMkscLazytrackerApiModelsTicketTicketMoveRequest {
 export interface JpMkscLazytrackerApiModelsTicketTicketAssignRequest {
   /** String */
   assigneeId: string;
-}
-
-/** ChatResponse */
-export interface JpMkscLazytrackerApiModelsChatChatResponse {
-  /**
-   * Long
-   * @format int64
-   */
-  createdAt: number;
-  /** String */
-  id: string;
-  /** Boolean */
-  isReply: boolean;
-  /** String */
-  message: string;
-  /** String */
-  parentId?: null | string;
-  /** String */
-  ticketId: string;
-  /**
-   * Long
-   * @format int64
-   */
-  updatedAt: number;
-  /** String */
-  userId?: null | string;
-}
-
-/** ChatCreateRequest */
-export interface JpMkscLazytrackerApiModelsChatChatCreateRequest {
-  /** String */
-  message: string;
-  /** String */
-  parentId?: null | string;
-}
-
-/** ChatUpdateRequest */
-export interface JpMkscLazytrackerApiModelsChatChatUpdateRequest {
-  /** String */
-  message: string;
 }
 
 /** TagResponse */
@@ -799,4 +1038,418 @@ export interface JpMkscLazytrackerApiModelsTagTagResponse {
 export interface JpMkscLazytrackerApiModelsTagTagCreateRequest {
   /** String */
   name: string;
+}
+
+/** TagUpdateRequest */
+export interface JpMkscLazytrackerApiModelsTagTagUpdateRequest {
+  /** String */
+  name: string;
+}
+
+/** ChatResponse */
+export interface JpMkscLazytrackerApiModelsChatChatResponse {
+  /**
+   * Long
+   * @format int64
+   */
+  createdAt: number;
+  /** String */
+  id: string;
+  /** String */
+  message: string;
+  /** String */
+  ticketId: string;
+  /**
+   * Long
+   * @format int64
+   */
+  updatedAt: number;
+  /** String */
+  userId?: null | string;
+}
+
+/** ChatCreateRequest */
+export interface JpMkscLazytrackerApiModelsChatChatCreateRequest {
+  /** String */
+  message: string;
+}
+
+/** ChatUpdateRequest */
+export interface JpMkscLazytrackerApiModelsChatChatUpdateRequest {
+  /** String */
+  message: string;
+}
+
+/** TicketExternalLinkResponse */
+export interface JpMkscLazytrackerApiModelsTicketTicketExternalLinkResponse {
+  /**
+   * Long
+   * @format int64
+   */
+  createdAt: number;
+  /** String */
+  id: string;
+  /**
+   * Int
+   * @format int32
+   */
+  number: number;
+  /** String */
+  repository: string;
+  status?: null | JpMkscLazytrackerApiModelsCommonExternalLinkStatusEnum;
+  /** String */
+  ticketId: string;
+  /** String */
+  title?: null | string;
+  /**
+   * Long
+   * @format int64
+   */
+  updatedAt: number;
+  /** String */
+  url: string;
+}
+
+/** TicketExternalLinkCreateRequest */
+export interface JpMkscLazytrackerApiModelsTicketTicketExternalLinkCreateRequest {
+  /** String */
+  url: string;
+}
+
+/** ProjectSearchHitResponse */
+export interface JpMkscLazytrackerApiModelsSearchProjectSearchHitResponse {
+  /** String */
+  chatSnippet?: null | string;
+  /** String */
+  ticketId: string;
+}
+
+/** ProjectSearchResponse */
+export interface JpMkscLazytrackerApiModelsSearchProjectSearchResponse {
+  /** List<ProjectSearchHitResponse> */
+  results: JpMkscLazytrackerApiModelsSearchProjectSearchHitResponse[];
+  /** Boolean */
+  truncated: boolean;
+}
+
+/** PresignedUploadRequest */
+export interface JpMkscLazytrackerApiModelsFilePresignedUploadRequest {
+  /** String */
+  contentType: string;
+  /**
+   * Long
+   * @format int64
+   */
+  fileSize: number;
+  /** String */
+  filename: string;
+}
+
+/** PresignedUploadResponse */
+export interface JpMkscLazytrackerApiModelsFilePresignedUploadResponse {
+  /** String */
+  fileId: string;
+  /** String */
+  uploadUrl: string;
+}
+
+/** GitHubJobStatusResponse */
+export interface JpMkscLazytrackerApiModelsGithubGitHubJobStatusResponse {
+  /**
+   * Long
+   * @format int64
+   */
+  completedAt?: null | number;
+  /** String */
+  errorMessage?: null | string;
+  /**
+   * Int
+   * @format int32
+   */
+  failedCount?: null | number;
+  /**
+   * Int
+   * @format int32
+   */
+  importedCount?: null | number;
+  /** String */
+  jobId: string;
+  /**
+   * Int
+   * @format int32
+   */
+  skippedCount?: null | number;
+  /**
+   * Long
+   * @format int64
+   */
+  startedAt?: null | number;
+  status: JpMkscLazytrackerCoreModelsGitHubImportJobStatus;
+  /**
+   * Long
+   * @format int64
+   */
+  submittedAt: number;
+  /**
+   * Int
+   * @format int32
+   */
+  updatedCount?: null | number;
+}
+
+/** GitHubInitiateDeviceFlowRequest */
+export interface JpMkscLazytrackerApiModelsGithubGitHubInitiateDeviceFlowRequest {
+  /** Boolean */
+  isPrivate: boolean;
+  /** String */
+  owner: string;
+  /** String */
+  repo: string;
+}
+
+/** GitHubDeviceFlowResponse */
+export interface JpMkscLazytrackerApiModelsGithubGitHubDeviceFlowResponse {
+  /**
+   * Int
+   * @format int32
+   */
+  expiresIn: number;
+  /**
+   * Int
+   * @format int32
+   */
+  interval: number;
+  /** String */
+  jobId: string;
+  /** String */
+  userCode: string;
+  /** String */
+  verificationUri: string;
+}
+
+/** GitHubDeviceFlowImportRequest */
+export interface JpMkscLazytrackerApiModelsGithubGitHubDeviceFlowImportRequest {
+  /** List<Int> */
+  issueNumbers?: null | number[];
+  /** String */
+  jobId: string;
+  /** List<String> */
+  labels?: null | string[];
+  /** String */
+  owner: string;
+  /** String */
+  repo: string;
+  state: JpMkscLazytrackerCoreModelsGitHubIssueStateFilter;
+}
+
+/** GitHubImportJobResponse */
+export interface JpMkscLazytrackerApiModelsGithubGitHubImportJobResponse {
+  /** String */
+  jobId: string;
+  status: JpMkscLazytrackerCoreModelsGitHubImportJobStatus;
+}
+
+/** ProjectRepositoryResponse */
+export interface JpMkscLazytrackerApiModelsProjectProjectRepositoryResponse {
+  /**
+   * Long
+   * @format int64
+   */
+  connectedAt: number;
+  /** String */
+  connectedBy?: null | string;
+  /** String */
+  repository: string;
+  /** String */
+  url: string;
+}
+
+/** ProjectRepositoryStatusResponse */
+export interface JpMkscLazytrackerApiModelsProjectProjectRepositoryStatusResponse {
+  /** Boolean */
+  appEnabled: boolean;
+  /** String */
+  installUrl?: null | string;
+  repository?: null | JpMkscLazytrackerApiModelsProjectProjectRepositoryResponse;
+}
+
+/** ProjectRepositoryAuthorizationResponse */
+export interface JpMkscLazytrackerApiModelsProjectProjectRepositoryAuthorizationResponse {
+  /** String */
+  authorizeUrl: string;
+}
+
+/** ProjectRepositoryCandidateResponse */
+export interface JpMkscLazytrackerApiModelsProjectProjectRepositoryCandidateResponse {
+  /** String */
+  fullName: string;
+  /**
+   * Long
+   * @format int64
+   */
+  installationId: number;
+  /** Boolean */
+  isPrivate: boolean;
+  /**
+   * Long
+   * @format int64
+   */
+  repositoryId: number;
+}
+
+/** ProjectRepositoryCandidatesResponse */
+export interface JpMkscLazytrackerApiModelsProjectProjectRepositoryCandidatesResponse {
+  /** List<ProjectRepositoryCandidateResponse> */
+  candidates: JpMkscLazytrackerApiModelsProjectProjectRepositoryCandidateResponse[];
+}
+
+/** ProjectRepositoryConnectRequest */
+export interface JpMkscLazytrackerApiModelsProjectProjectRepositoryConnectRequest {
+  /**
+   * Long
+   * @format int64
+   */
+  repositoryId: number;
+  /** String */
+  session: string;
+}
+
+/** ConfirmUploadRequest */
+export interface JpMkscLazytrackerApiModelsFileConfirmUploadRequest {
+  /** String */
+  fileId: string;
+}
+
+/** FileResponse */
+export interface JpMkscLazytrackerApiModelsFileFileResponse {
+  /** String */
+  contentType: string;
+  /**
+   * Long
+   * @format int64
+   */
+  createdAt: number;
+  /** String */
+  downloadUrl: string;
+  /**
+   * Long
+   * @format int64
+   */
+  fileSize: number;
+  /** String */
+  id: string;
+  /** String */
+  originalFilename: string;
+  /** String */
+  status: string;
+  /**
+   * Long
+   * @format int64
+   */
+  updatedAt: number;
+  /** String */
+  uploadedBy: string;
+}
+
+/** BillingAlertResponse */
+export interface JpMkscLazytrackerApiModelsBillingBillingAlertResponse {
+  /** String */
+  status: string;
+  /** String */
+  teamKey: string;
+}
+
+/** TeamBillingStatusResponse */
+export interface JpMkscLazytrackerApiModelsBillingTeamBillingStatusResponse {
+  /** Boolean */
+  billingExempt: boolean;
+  /** String */
+  billingInterval?: null | string;
+  /** Boolean */
+  cancelAtPeriodEnd: boolean;
+  /** String */
+  currency?: null | string;
+  /**
+   * Long
+   * @format int64
+   */
+  currentPeriodEnd?: null | number;
+  /**
+   * Long
+   * @format int64
+   */
+  gracePeriodEndsAt?: null | number;
+  /**
+   * Long
+   * @format int64
+   */
+  payableSeatCount: number;
+  /** Boolean */
+  requiresBilling: boolean;
+  /**
+   * Long
+   * @format int64
+   */
+  seatTotalAmount?: null | number;
+  /** String */
+  status: string;
+  /**
+   * Long
+   * @format int64
+   */
+  unitAmount?: null | number;
+}
+
+/** TeamNextInvoiceResponse */
+export interface JpMkscLazytrackerApiModelsBillingTeamNextInvoiceResponse {
+  /**
+   * Long
+   * @format int64
+   */
+  amountDue?: null | number;
+  /** String */
+  currency?: null | string;
+  /**
+   * Long
+   * @format int64
+   */
+  nextPaymentAt?: null | number;
+  /** String */
+  state: string;
+  /**
+   * Long
+   * @format int64
+   */
+  subtotal?: null | number;
+  /**
+   * Long
+   * @format int64
+   */
+  tax?: null | number;
+  /**
+   * Long
+   * @format int64
+   */
+  unpaidAmount?: null | number;
+  /** String */
+  unpaidCurrency?: null | string;
+  /**
+   * Long
+   * @format int64
+   */
+  unpaidDueAt?: null | number;
+  /** String */
+  unpaidInvoiceUrl?: null | string;
+}
+
+/** CheckoutSessionResponse */
+export interface JpMkscLazytrackerApiModelsBillingCheckoutSessionResponse {
+  /** String */
+  checkoutUrl: string;
+}
+
+/** BillingPortalSessionResponse */
+export interface JpMkscLazytrackerApiModelsBillingBillingPortalSessionResponse {
+  /** String */
+  portalUrl: string;
 }
