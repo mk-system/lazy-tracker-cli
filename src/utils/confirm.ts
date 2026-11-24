@@ -1,17 +1,20 @@
 import { createInterface } from 'node:readline';
 import { stripControlChars } from './output.js';
 
-export async function confirm(message: string): Promise<boolean> {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stderr,
-  });
+export async function confirm(
+  message: string,
+  input: NodeJS.ReadableStream = process.stdin,
+  output: NodeJS.WritableStream = process.stderr
+): Promise<boolean> {
+  const rl = createInterface({ input, output });
 
   return new Promise((resolve) => {
+    rl.once('close', () => resolve(false));
     rl.question(`${stripControlChars(message)} (y/N): `, (answer) => {
-      rl.close();
       const normalized = answer.trim().toLowerCase();
+      // rl.close() emits 'close' synchronously, so resolve first.
       resolve(normalized === 'y' || normalized === 'yes');
+      rl.close();
     });
   });
 }
