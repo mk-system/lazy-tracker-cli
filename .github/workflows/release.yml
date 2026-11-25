@@ -6,127 +6,190 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify-version:
     name: Verify version
-    runs-on: ubuntu-22.04
+    # Runner labels are defined once as YAML anchors here and in the test and
+    # build matrices, then referenced by alias.
+    # TODO: Revisit runner labels after the GHEC migration; hosted runner names may change.
+    runs-on: &linux_x64 ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
-      - name: Verify tag matches package.json version
+      - name: Install Rust toolchain
+        run: rustup toolchain install
+
+      - name: Verify tag matches Cargo.toml version
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
-          pkg_version=$(jq -r .version package.json)
-          if [ "$tag_version" != "$pkg_version" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version (${pkg_version}). Bump package.json first, merge that, then tag the merge commit."
+          crate_version=$(cargo metadata --no-deps --format-version 1 --locked | jq -r '.packages[0].version')
+          if [ "$tag_version" != "$crate_version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match Cargo.toml version (${crate_version}). Bump Cargo.toml first, merge that, then tag the merge commit."
             exit 1
           fi
 
-  build-macos:
-    name: Build macOS binaries
+      - name: Verify the tagged commit is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not on main. Tag a commit that has been merged to main."
+            exit 1
+          fi
+
+  test:
+    name: Test (${{ matrix.os }})
     needs: verify-version
-    runs-on: macos-14
+    strategy:
+      matrix:
+        # TODO: Revisit runner labels after the GHEC migration; hosted runner names may change.
+        os: [*linux_x64, &macos macos-14]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Install Rust toolchain
+        run: rustup toolchain install
 
-      - name: Install dependencies
-        run: bun install
+      - name: Format check
+        run: cargo fmt --all --check
 
-      - name: Build macOS binaries
-        run: |
-          bun run build:macos-arm64
-          bun run build:macos-x64
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
 
-      # bun --compile appends the JS bundle after the runtime is signed, leaving a
-      # signature that the arm64 kernel SIGKILLs. Re-signing is the actual repair,
-      # so it runs unconditionally instead of relying on how bun signs per host.
-      - name: Re-sign binaries ad-hoc
-        run: |
-          codesign --force --sign - dist/lt-macos-arm64
-          codesign --force --sign - dist/lt-macos-x64
+      - name: Test
+        run: cargo test --locked
 
-      - name: Verify signatures
-        run: |
-          codesign --verify --verbose dist/lt-macos-arm64
-          codesign --verify --verbose dist/lt-macos-x64
-
-      # x64 cannot run on this runner, so arm64 is the only executable check.
-      - name: Smoke test arm64 binary
-        run: ./dist/lt-macos-arm64 --version
-
-      - name: Upload macOS binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries-macos
-          path: dist/lt-macos-*
-          if-no-files-found: error
-          retention-days: 1
-
-  build-others:
-    name: Build Linux and Windows binaries
-    needs: verify-version
-    runs-on: ubuntu-22.04
+  build:
+    name: Build ${{ matrix.artifact }}
+    needs: test
+    strategy:
+      matrix:
+        # Linux builds link musl statically so the binaries do not depend on
+        # the glibc version of the machine they are copied to.
+        # TODO: Revisit runner labels after the GHEC migration; hosted runner names may change.
+        # ubuntu-24.04-arm availability after the migration is also unconfirmed.
+        include:
+          - runner: *macos
+            target: aarch64-apple-darwin
+            artifact: lt-macos-arm64
+            smoke: run
+          - runner: *macos
+            target: x86_64-apple-darwin
+            artifact: lt-macos-x64
+            smoke: file
+          - runner: *linux_x64
+            target: x86_64-unknown-linux-musl
+            artifact: lt-linux-x64
+            smoke: run
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            artifact: lt-linux-arm64
+            smoke: run
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build Linux and Windows binaries
+      - name: Install Rust toolchain
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
-          bun run build:linux-x64
-          bun run build:linux-arm64
-          bun run build:windows-x64
+          rustup toolchain install
+          rustup target add "$TARGET"
 
-      - name: Smoke test linux-x64 binary
-        run: ./dist/lt-linux-x64 --version
+      - name: Install musl tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
 
-      - name: Upload Linux and Windows binaries
-        uses: actions/upload-artifact@v4
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+          ARTIFACT: ${{ matrix.artifact }}
+        run: |
+          cargo build --release --locked --target "$TARGET"
+          mkdir -p dist
+          cp "target/${TARGET}/release/lt" "dist/${ARTIFACT}"
+
+      # The linker signs arm64 ad hoc but leaves x86_64 unsigned, and an
+      # invalid signature gets the binary SIGKILLed on Apple Silicon. Signing
+      # both unconditionally keeps the check below meaningful for each.
+      - name: Sign ad-hoc and verify
+        if: runner.os == 'macOS'
+        env:
+          ARTIFACT: ${{ matrix.artifact }}
+        run: |
+          codesign --force --sign - "dist/${ARTIFACT}"
+          codesign --verify --verbose "dist/${ARTIFACT}"
+
+      - name: Smoke test
+        env:
+          ARTIFACT: ${{ matrix.artifact }}
+          SMOKE: ${{ matrix.smoke }}
+        run: |
+          if [ "$SMOKE" = run ]; then
+            output=$("./dist/${ARTIFACT}" --version)
+            echo "$output"
+            case "$output" in
+              *"${GITHUB_REF_NAME#v}"*) ;;
+              *) echo "::error::--version printed '${output}', expected ${GITHUB_REF_NAME#v}"; exit 1 ;;
+            esac
+          else
+            # x86_64 cannot run on this runner; check the architecture only.
+            info=$(file "dist/${ARTIFACT}")
+            echo "$info"
+            case "$info" in
+              *x86_64*) ;;
+              *) echo "::error::dist/${ARTIFACT} is not an x86_64 binary"; exit 1 ;;
+            esac
+          fi
+
+      - name: Upload binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: binaries-others
-          path: |
-            dist/lt-linux-*
-            dist/lt-windows-*
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
           if-no-files-found: error
           retention-days: 1
 
   release:
     name: Create GitHub Release
-    needs:
-      - build-macos
-      - build-others
-    runs-on: ubuntu-22.04
+    needs: build
+    runs-on: *linux_x64
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Download binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist
-          pattern: binaries-*
+          pattern: lt-*
           merge-multiple: true
 
       - name: Generate checksums
-        run: |
-          cd dist
-          shasum -a 256 lt-macos-arm64 lt-macos-x64 lt-linux-x64 lt-linux-arm64 lt-windows-x64.exe > SHA256SUMS
+        working-directory: dist
+        run: shasum -a 256 lt-* > SHA256SUMS
 
+      # A tag with a pre-release suffix (v0.2.0-rc.1) must not become
+      # "Latest": README links to releases/latest/download/... for everyone.
       - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+        working-directory: dist
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            dist/lt-macos-arm64 dist/lt-macos-x64 dist/lt-linux-x64 dist/lt-linux-arm64 dist/lt-windows-x64.exe dist/SHA256SUMS \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+          prerelease=()
+          case "$GITHUB_REF_NAME" in
+            *-*) prerelease=(--prerelease) ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" \
+            lt-macos-arm64 lt-macos-x64 lt-linux-x64 lt-linux-arm64 SHA256SUMS \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            "${prerelease[@]}"
