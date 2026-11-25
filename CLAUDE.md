@@ -4,48 +4,66 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 概要
 
-Lazy Tracker（mk-system のプロジェクト管理 SaaS）をターミナルから操作する CLI `lt`．TypeScript + Bun 製で，`bun build --compile` のシングルバイナリを GitHub Releases で配布する．認可・永続化はバックエンド API（既定 `https://api.lazy-tracker.com`）側にあり，本リポジトリは HTTP クライアントに徹する．
+Lazy Tracker（mk-system のプロジェクト管理 SaaS）をターミナルから操作する CLI `lt`．Rust + clap 製で，macOS（arm64 / x64）と Linux（x64 / arm64，musl 静的リンク）のバイナリを GitHub Releases で配布する．Windows は非サポート（`src/main.rs` の `compile_error!`）．認可・永続化はバックエンド API（既定 `https://api.lazy-tracker.com`）側にあり，本リポジトリは HTTP クライアントに徹する．
 
-**OSS として公開されており**，リリースバイナリは mk-system 外の顧客にも配布される．外部 fork からの PR を前提に，依存追加・ビルドスクリプト・CI トリガー（`pull_request_target` 化など）・`skills/` 配下の変更は慎重に扱うこと．セキュリティ上の前提と severity 判断は `.github/review-pr/repo-context.md` にまとまっている（ただし「テストが存在しない」等の記述は現状と異なる）．
+**OSS として公開されており**，リリースバイナリは mk-system 外の顧客にも配布される．外部 fork からの PR を前提に，依存追加・ビルドスクリプト（`build.rs`）・CI トリガー（`pull_request_target` 化など）・`skills/` 配下の変更は慎重に扱うこと．セキュリティ上の前提と severity 判断は `.github/review-pr/repo-context.md` にまとまっている（ただし TS / Bun 時代の記述が残っている）．
 
 ## コマンド
 
-ランタイム・パッケージマネージャは Bun（`bun.lock`）．
+ツールチェーンは `rust-toolchain.toml` で固定（rustup が自動導入）．
 
 ```sh
-bun install
-bun run dev -- <args>        # 例: bun run dev -- --verbose tickets list
-bun test                     # 全テスト（bun:test）
-bun test src/api/client.test.ts      # 単一ファイル
-bun test -t '<テスト名の一部>'        # 名前で絞り込み
-bun run lint                 # eslint
-bun run format:check         # prettier（CI はこちら）/ bun run format で整形
-bun run build                # dist/lt（ローカル用シングルバイナリ）
-bun run generate-api         # API クライアント再生成（localhost:8080 でバックエンド起動が必要）
+cargo run -- <args>                  # 例: cargo run -- --verbose tickets list
+cargo test                           # 全テスト（ユニット + tests/cli.rs）
+cargo test --test cli                # 統合テストのみ
+cargo test <テスト名の一部>          # 名前で絞り込み
+cargo test -- --ignored              # 実 Keychain / Secret Service を触る手動テスト（使い捨て項目名）
+cargo fmt --all --check              # CI と同じ（整形は cargo fmt --all）
+cargo clippy --all-targets --locked -- -D warnings
+cargo build --release --locked       # target/release/lt
 ```
 
-CI（`.github/workflows/ci.yaml`）は lint → format:check → test → build の順に実行する．pre-commit は husky + lint-staged（`src/api/__generated__/` は除外）．
+CI（`.github/workflows/ci.yaml`）は ubuntu / macOS で fmt → clippy → test → release build の順に実行する．pre-commit フックは置いていないので，コミット前に上の fmt / clippy / test を手元で通すこと．Linux 専用コード（`src/auth/store/secret_service.rs`）は macOS ではコンパイルされないので，触ったら Linux（Docker の `rust:<toolchain の版>` イメージなど）で clippy / test を通す．
 
 ## アーキテクチャ
 
-- **エントリ**: `bin/lt.ts` → `src/index.ts`．commander の `program` にグローバルオプション（`--api-url` / `--no-color` / `--verbose`）と `config` / `config:set` を定義し，各サブコマンドは `src/commands/<group>/index.ts` で `Command` を組み立てて `addCommand` する．1 サブコマンド = 1 ファイル．
-- **API クライアント**: `src/api/__generated__/` は `swagger-typescript-api` による自動生成物で，手で編集しない（`src/api/lib/generator.ts` で再生成）．`src/api/client.ts` の `customFetch` がすべてのリクエストを通り，次を担う:
-  - リクエストボディを snake_case へ，JSON レスポンスを camelCase へ変換（`humps`）．コマンド側は camelCase で扱う．
-  - 非 2xx を `APIError`，401 をトークン破棄 + `AuthenticationError`，それ以外の例外を `NetworkError` に変換．
-  - `securityWorker` が `getValidAccessToken()` で Bearer トークンを付与（期限切れ前に自動リフレッシュ）．
-- **認証**: OAuth 2.0 Device Authorization Grant（`src/auth/device-flow.ts`，public client で secret なし）．トークン保存は `src/auth/store.ts` が抽象化し，macOS では Keychain（`security` コマンド経由，`keychain.ts`），それ以外は `conf` による平文ファイル．ファイル → Keychain の移行はモジュール読み込み時に走る．
-- **設定の解決**:
-  - API URL: `--api-url`（その実行限り，永続化しない）> `config:set api-url`（永続）> `LT_API_URL` > 既定値．https のみ許可．
-  - team/project: CLI オプション > `.lazy-tracker.json`（cwd から上位へ探索，`team`/`project` のみ読む）> グローバル設定，を項目ごとにマージ（`src/config/project.ts`）．`.lazy-tracker.json` から API URL を読まないのは意図的（コミットされたファイルでトークン送信先を乗っ取らせないため）．
-  - チケット番号はプロジェクト内でのみ一意．数字のみの引数は team/project を解決して番号 → UUID に変換する（`src/config/ticket.ts`）．コメント API は UUID でしか引けない．
-- **出力規約**: stdout はコマンドの JSON ペイロード専用（`printJson`，Bun のパイプ時切り詰め回避のため `process.stdout.write` + drain を使う）．`--table` 指定時のみテーブル出力．スピナー（ora）・診断ログはすべて stderr．`--verbose` の `debug*`（`src/utils/logger.ts`）は method / URL / ステータス / エラーボディのみを記録し，ヘッダ・トークン・OAuth トークンエンドポイントのボディは決してログに出さない．
-- **エラー処理**: 各コマンドの action は try/catch で `failSpinner` → `console.error(formatError(err))` → `process.exit(1)` の形を取る．`formatError` は `--verbose` 時にステータス・レスポンス・スタック・cause を付加する．
-- **スキル配布**: `skills/lazy-tracker-cli/SKILL.md` はテキスト import でバイナリに埋め込まれ，`lt skills install` でエージェント（claude-code → `.claude/skills`，codex/copilot/cursor → `.agents/skills`）の信頼ディレクトリに書き込まれる．このファイルの変更は CI が警告を出し，内容レビューが必要になる．`--project` スコープの git root 解決（`findGitRoot`）は書き込み先の乗っ取りを防ぐため，worktree / submodule の既知レイアウトのみを辿る．
+- **エントリ**: `src/main.rs` が `Cli::parse()`（`src/cli.rs` に clap derive の全定義．グローバルオプション `--api-url` / `--no-color` / `--verbose` は `global = true`）→ `Context::new` → `commands::run`．各グループは `src/commands/<group>.rs`．`config:set` は `#[command(name = "config:set")]`．
+- **Context**（`src/context.rs`）: 環境変数は `main` で `Env::from_process()` が一度だけ読み，`Context` に詰める．他のモジュールは `std::env` を読まない（edition 2024 では `set_var` が unsafe で，テストから環境を差し替えられないため）．グローバル可変状態は持たない．
+- **API クライアント**（`src/api/`）: 16 operation を `endpoints.rs` に手書きしている（OpenAPI からの生成はしない）．レスポンスは `serde_json::Value` のまま `case.rs` でキーを再帰的に camelize して出力する（`humps` 2.0.1 互換．型付き struct にするとサーバーが足したフィールドが消え，stdout の契約が変わる）．`serde_json` の `preserve_order` でキー順はサーバーどおり．リクエストボディは snake_case の struct から直接組む．`client.rs` の `call` が:
+  - 非 2xx を `CliError::Api{status, body}`（メッセージはボディの `message` → `error` → `Request failed with status N`），通信失敗を `Network` に変換．
+  - 401 を受けたら 1 回だけリフレッシュして再送する．再送も 401 ならエラーにするが**トークンは破棄しない**．
+  - パスセグメントは `url` で percent-encode．接続 10 秒 / 全体 30 秒のタイムアウト，`User-Agent: lt/<version>`．
+- **認証**（`src/auth/`）: OAuth 2.0 Device Authorization Grant（`device_flow.rs`，public client で secret なし，`slow_down` は以後の間隔に累積）．
+  - `session.rs`: 期限切れ（60 秒前倒し）ならリフレッシュ．リフレッシュとトークンの書き換え（login / logout）はすべて `<config_dir>/auth.lock` の排他ロック（`std::fs::File::lock`）の中で行い，ロック取得後に再読込して他プロセスの更新を再利用する（リフレッシュトークンのローテーション競合対策）．
+  - トークンを破棄するのはリフレッシュが **401 または 400 `invalid_grant`** のときだけ．429 / 5xx / 通信失敗 / その他の 4xx では保持する（その他の 4xx と「再送も 401」の案内は `lt auth login --force`）．
+  - 保存先は `TokenStore` trait（`store.rs`）．`LT_INSECURE_TOKEN_FILE=1` → `FileStore`（`tokens.json`，0600），macOS → `KeychainStore`，Linux → `SecretServiceStore`．`Ok(None)` は「確実に項目が無い」ときだけで，読めなかったら必ず `StoreError::Unavailable`（未ログイン扱いにしない）．
+  - Keychain は `/usr/bin/security` を絶対パスで起動する（Security.framework を直接呼ぶと，ad-hoc 署名のリリースごとに ACL の許可ダイアログが出るため）．exit 44 = 項目なし．書き込みは `-U` の上書きのみで，値は `security -i` の stdin で渡す．`security -i` は 4096 バイトで行を分割して**途中までの値を保存してしまう**ので，行が長すぎる・制御文字を含む場合だけ argv にフォールバックする（`plan_write`）．タイムアウト 30 秒．
+  - Secret Service は `keyring`（`v1` feature．Linux では zbus ストアのみ有効，pure Rust で OpenSSL / tokio なし）．ワーカースレッドで呼んで 30 秒で打ち切る．keyutils へのフォールバックはしない．
+- **設定の解決**（`src/config/`）:
+  - 設定ディレクトリ: `LT_CONFIG_DIR` > `$XDG_CONFIG_HOME/lazy-tracker-cli` > `~/.config/lazy-tracker-cli`（macOS も同じ）．`config.json` は一時ファイル + rename で 0600．
+  - API URL: `--api-url`（その実行限り，永続化しない）> `config.json` の `apiUrl` > `LT_API_URL` > 既定値．どの経路でも `api_url::validate`（https のみ．ループバックだけ http 可）を通す．ブラウザで開く URL も同じ規則で検証する．
+  - team/project: CLI オプション > `.lazy-tracker.json`（cwd から上位へ探索，`team`/`project` のみ読む）> グローバル設定，を項目ごとにマージ（`project_file.rs`）．`.lazy-tracker.json` から API URL を読まないのは意図的（コミットされたファイルでトークン送信先を乗っ取らせないため）．
+  - Bun 版（v0.1.x）の `lazy-tracker-cli-nodejs/config.json` からの移行は `legacy.rs`．`LT_CONFIG_DIR` 設定時は行わない．logout / トークン破棄時は旧ファイルの `tokens` も消す．
+  - チケット番号はプロジェクト内でのみ一意．数字のみの引数は team/project を解決して番号 → UUID に変換する（`src/ticket_ref.rs`）．コメント API は UUID でしか引けない．
+- **出力規約**（`src/output/`）: stdout はコマンドの結果専用（JSON は `print_json` で 2 スペースインデント，`--table` のテーブル，`config` / `auth status` の表示，`skills` の本文）．スピナー（indicatif，stderr が TTY のときだけ動く）・`✓ ✗ ! i` の状態行・確認プロンプト・診断ログはすべて stderr（`Ui`）．`--verbose` の `debug*`（`src/log.rs`）は method / URL / ステータス / 経過 ms / エラーボディ（2000 文字で切り詰め）のみを記録し，ヘッダ・トークン・OAuth エンドポイントのボディは決してログにもエラー表示にも出さない．色は `--no-color` / `NO_COLOR` / 非 TTY で無効．
+- **エラー処理**: コマンドは `Result<(), CliError>` を返し，失敗時はスピナーの失敗行を出してから `main` が `format_error`（`--verbose` でステータス・レスポンス・cause チェーンを付加）を stderr に出して exit 1．引数パースエラーは clap 既定の exit 2．削除系の確認は stdin が TTY でなければ `--force` を案内して exit 1．
+- **スキル配布**: `skills/lazy-tracker-cli/SKILL.md` は `include_str!` でバイナリに埋め込まれ，`lt skills install` でエージェント（claude-code → `.claude/skills`，codex/copilot/cursor → `.agents/skills`）の信頼ディレクトリに書き込まれる．このファイルの変更は CI が警告を出し，内容レビューが必要になる．`--project` スコープの git root 解決（`src/skills/git_root.rs`）は書き込み先の乗っ取りを防ぐため，worktree / submodule の既知レイアウトのみを辿る．symlink 越しの書き込みは拒否する．
+
+## テスト
+
+- `cargo test` は実ユーザーの Keychain / Secret Service / 設定ディレクトリに触れてはならない．統合テスト（`tests/cli.rs`）は必ず `tests/support/env.rs` の `TestEnv` 経由で `lt` を起動する（`LT_CONFIG_DIR` / `LT_INSECURE_TOKEN_FILE=1` / `HOME` / `XDG_CONFIG_HOME` を一時ディレクトリに向け，環境変数をクリアする）．
+- HTTP は `tests/support/server.rs` のモックサーバー（`127.0.0.1:0` の逐次サーバー，method + path で台本を照合）．ユニットテストからも `#[path]` で同じファイルを使う．
+- ユニットテストのストアは `MemoryStore` / `FileStore` + `tempfile`．
+- テスト名で仕様（What）が読めるように書く．
 
 ## リリース
 
-`package.json` の version を上げた PR をマージ → そのコミットに `v<version>` タグを push すると `.github/workflows/release.yml` が動く（タグと version の不一致は失敗する）．macOS バイナリは macos ランナーでネイティブビルドし ad-hoc 再署名する（`bun --compile` の署名が arm64 で SIGKILL されるため）．
+`Cargo.toml` の version を上げた PR をマージ → main 上のそのコミットに `v<version>` タグを push すると `.github/workflows/release.yml` が動く．タグと version の不一致，main の祖先でないコミットへのタグは失敗する．fmt / clippy / test を通ってからビルドする．Linux は musl 静的リンク，macOS は両アーキテクチャとも ad-hoc 再署名して `codesign --verify` する（未署名・不正署名の arm64 バイナリは Apple Silicon で SIGKILL される）．成果物は `lt-macos-arm64` / `lt-macos-x64` / `lt-linux-x64` / `lt-linux-arm64` / `SHA256SUMS`．タグ名に `-` を含む（`v0.2.0-rc.1` など）と pre-release になり Latest を奪わない．
+
+workflow の action はコミット SHA で固定し，行末に `# vX.Y.Z` を書く．ランナーラベルは YAML アンカーで workflow ごとに 1 か所にまとめてある（GHEC 移行時の書き換え用 TODO 付き）．古い actionlint（1.7.7 で確認）はアンカーを解釈できない（1.7.12 は可）．
 
 ## コードスタイル
 
-Prettier: シングルクォート・セミコロンあり・printWidth 100・trailingComma es5．ESM（`"type": "module"`，`NodeNext`）なので相対 import には `.js` 拡張子を付ける．未使用引数は `_` プレフィックス．
+- rustfmt 既定 + `cargo clippy -- -D warnings`（`[lints.clippy] all = "warn"`）．
+- モジュールは `mod.rs` を使わない（`src/auth.rs` + `src/auth/*.rs`）．
+- コメントは英語で，コードから読み取れない制約・トレードオフ・「なぜ他の方法を採らなかったか」に限る．
