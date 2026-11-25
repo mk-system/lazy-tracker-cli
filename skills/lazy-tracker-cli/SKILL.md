@@ -166,7 +166,7 @@ lt --verbose <command>         # 診断ログを stderr に出力
 
 エラーメッセージだけでは原因が分からない場合は `--verbose` を付けて再実行する。
 リクエストの method / URL / ステータス / 所要時間、エラーレスポンスのボディ、
-スタックトレースが **stderr** に出力される。
+エラーの原因が **stderr** に出力される。
 
 ```bash
 lt --verbose comments list <ticket-id>
