@@ -12,8 +12,8 @@
   "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
-      "description": "npm: stabilityDays 14 for non-security updates",
-      "matchManagers": ["npm"],
+      "description": "crates: stabilityDays 14 for non-security updates",
+      "matchDatasources": ["crate"],
       "minimumReleaseAge": "14 days"
     },
     {
