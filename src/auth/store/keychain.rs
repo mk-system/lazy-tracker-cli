@@ -94,6 +94,9 @@ fn run_security(args: &[String], stdin: Option<&str>) -> Result<Outcome, String>
     let stderr_reader = thread::spawn(move || read_all(stderr_pipe.as_mut()));
 
     let started = Instant::now();
+    // A normal call finishes in ~20ms, so start with short sleeps and back
+    // off towards the cap only while waiting on an unlock dialog.
+    let mut pause = Duration::from_millis(1);
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -105,7 +108,10 @@ fn run_security(args: &[String], stdin: Option<&str>) -> Result<Outcome, String>
                     TIMEOUT.as_secs()
                 ));
             }
-            Ok(None) => thread::sleep(Duration::from_millis(20)),
+            Ok(None) => {
+                thread::sleep(pause);
+                pause = (pause * 2).min(Duration::from_millis(50));
+            }
             Err(e) => return Err(format!("failed to wait for {SECURITY}: {e}")),
         }
     };
