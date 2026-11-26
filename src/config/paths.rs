@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub const APP_DIR_NAME: &str = "lazy-tracker-cli";
 
-/// `LT_CONFIG_DIR` > `$XDG_CONFIG_HOME/lazy-tracker-cli` > `~/.config/lazy-tracker-cli`,
-/// on macOS as well as Linux.
+/// Uses the XDG layout on macOS too, not `~/Library/Application Support`.
 pub fn config_dir(
     override_dir: Option<&str>,
     xdg_config_home: Option<&str>,

@@ -1,5 +1,3 @@
-//! The 16 API operations the CLI uses, all under `/api/v1` with a bearer token.
-
 use serde::Serialize;
 use serde_json::Value;
 

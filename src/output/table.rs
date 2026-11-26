@@ -2,7 +2,6 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::output::style;
 
-/// Cuts `text` to at most `max` terminal columns, marking the cut with "...".
 pub fn truncate(text: &str, max: usize) -> String {
     if text.width() <= max {
         return text.to_owned();
@@ -19,9 +18,6 @@ pub fn truncate(text: &str, max: usize) -> String {
     format!("{kept}...")
 }
 
-/// Left-aligned columns separated by two spaces, with a dashed rule under the
-/// header. Cells are measured in terminal columns, so wide (CJK) characters
-/// count twice.
 pub fn render(headers: &[&str], rows: &[Vec<String>], bold_header: bool) -> String {
     let widths: Vec<usize> = headers
         .iter()

@@ -56,8 +56,6 @@ impl From<std::io::Error> for CliError {
     }
 }
 
-/// Renders an error for stderr. Verbose mode appends the HTTP status, the raw
-/// response body and the cause chain, which the one-line message hides.
 pub fn format_error(err: &(dyn StdError + 'static), verbose: bool) -> String {
     let message = err.to_string();
     if !verbose {

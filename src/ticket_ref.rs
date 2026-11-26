@@ -1,6 +1,5 @@
 //! Ticket numbers are unique only within a project, while several endpoints
-//! (chats, update, delete) accept the ticket UUID alone. Numbers are turned
-//! into tickets via team/project; anything else is taken as a UUID.
+//! (chats, update, delete) accept the ticket UUID alone.
 
 use serde_json::{Map, Value};
 
@@ -24,8 +23,6 @@ pub fn resolve_scope(
         .ok_or_else(|| CliError::usage(TEAM_PROJECT_REQUIRED))
 }
 
-/// The `team` / `project` keys that prefix JSON output when a number was
-/// resolved; empty for UUID lookups.
 pub fn scope_fields(scope: Option<&TeamProject>) -> Map<String, Value> {
     let mut fields = Map::new();
     if let Some(scope) = scope {

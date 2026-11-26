@@ -13,7 +13,6 @@ pub fn print_json(value: &Value) {
     let _ = stdout.flush();
 }
 
-/// Prints human-readable output (tables, `config`, `auth status`) to stdout.
 pub fn print_stdout(text: &str, color: ColorChoice) {
     let mut stream = AutoStream::new(io::stdout().lock(), color);
     let _ = writeln!(stream, "{text}");

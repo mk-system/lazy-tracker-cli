@@ -35,8 +35,6 @@ fn read(path: &Path) -> io::Result<Option<Map<String, Value>>> {
     }
 }
 
-/// Copies the legacy `config` section into a fresh `config.json`. An existing
-/// `config.json` always wins.
 pub fn migrate_settings(legacy: &Path, settings_path: &Path) -> io::Result<bool> {
     if settings_path.exists() {
         return Ok(false);
@@ -61,9 +59,9 @@ pub fn migrate_settings(legacy: &Path, settings_path: &Path) -> io::Result<bool>
 pub enum TokenMigration {
     Nothing,
     Moved,
-    /// The store already had credentials; the plaintext copy was dropped.
+    /// The store already had credentials, or the legacy tokens could not be
+    /// parsed; the plaintext copy was dropped.
     DroppedDuplicate,
-    /// The store could not be used; the legacy file is untouched for next time.
     Deferred(StoreError),
 }
 
@@ -99,7 +97,6 @@ pub fn migrate_tokens(legacy: &Path, store: &dyn TokenStore) -> io::Result<Token
     }
 }
 
-/// Drops only the `tokens` key, keeping whatever else `conf` stored.
 pub fn remove_tokens(legacy: &Path) -> io::Result<()> {
     let Some(mut file) = read(legacy)? else {
         return Ok(());

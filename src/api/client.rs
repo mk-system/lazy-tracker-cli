@@ -45,7 +45,6 @@ impl RawResponse {
     }
 }
 
-/// Appends percent-encoded path segments to the API base URL.
 pub fn build_url(base: &str, segments: &[&str]) -> Result<String, CliError> {
     let invalid = || CliError::usage(format!("Invalid API URL: {base}"));
     let mut url = Url::parse(base).map_err(|_| invalid())?;
@@ -56,8 +55,7 @@ pub fn build_url(base: &str, segments: &[&str]) -> Result<String, CliError> {
     Ok(url.into())
 }
 
-/// Sends one HTTP request without authentication or error mapping. Callers
-/// decide what may be logged; this only records method, URL and status.
+/// Logs only method, URL and status; never headers or bodies.
 pub fn transmit(
     ctx: &Context,
     method: Method,
@@ -177,7 +175,6 @@ fn interpret(response: RawResponse) -> Result<Value, CliError> {
     Ok(camelize_keys(parsed))
 }
 
-/// `message`, then `error`, from a JSON error body.
 pub fn error_message(body: &str) -> Option<String> {
     let parsed = camelize_keys(serde_json::from_str(body).ok()?);
     ["message", "error"].iter().find_map(|key| {

@@ -3,8 +3,6 @@ use std::io::{self, BufRead};
 use crate::error::CliError;
 use crate::output::Ui;
 
-/// Reads one answer from stdin after printing `prompt` on stderr. `None` means
-/// stdin was closed before a line arrived.
 pub fn ask(ui: &Ui, prompt: &str) -> Result<Option<String>, CliError> {
     ui.stop_spinner();
     ui.write_raw(prompt);

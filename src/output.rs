@@ -63,13 +63,10 @@ impl Ui {
         self.verbose
     }
 
-    /// Color choice for human-readable stdout output.
     pub fn color(&self) -> ColorChoice {
         self.stdout_color
     }
 
-    /// Writes one line to stderr, stripping ANSI styles when color is off and
-    /// keeping a running spinner from being drawn over.
     pub fn line(&self, text: &str) {
         self.spinner.suspend(|| {
             let mut sink = self.sink.lock().unwrap_or_else(|e| e.into_inner());

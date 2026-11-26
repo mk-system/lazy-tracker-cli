@@ -13,7 +13,6 @@ pub const SESSION_EXPIRED: &str = "Session expired. Please login again with `lt 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trigger {
-    /// The access token is past its expiry.
     Expired,
     /// The API answered 401 to a token that looked valid.
     Rejected,
@@ -136,7 +135,7 @@ pub fn ensure_loginable(ctx: &Context) -> Result<bool, CliError> {
     }
 }
 
-/// Fails early when the token store cannot be written, so the user does not
+/// Fails early when the token store cannot be read, so the user does not
 /// finish a browser authorization only to lose the result.
 pub fn check_store_usable(ctx: &Context) -> Result<(), CliError> {
     match ctx.store.load() {

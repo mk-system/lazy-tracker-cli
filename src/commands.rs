@@ -23,7 +23,6 @@ pub fn run(ctx: &Context, command: Command) -> Result<(), CliError> {
     }
 }
 
-/// Runs `f` with a spinner, reporting `failure` before the error propagates.
 fn with_spinner<T>(
     ctx: &Context,
     start: &str,

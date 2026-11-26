@@ -11,8 +11,6 @@ permissions:
 jobs:
   verify-version:
     name: Verify version
-    # Runner labels are defined once as YAML anchors here and in the test and
-    # build matrices, then referenced by alias.
     # TODO: Revisit runner labels after the GHEC migration; hosted runner names may change.
     runs-on: &linux_x64 ubuntu-24.04
     steps:

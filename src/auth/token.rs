@@ -29,7 +29,6 @@ impl TokenData {
     }
 }
 
-/// Body of a successful `/oauth/token` response.
 #[derive(Debug, Deserialize)]
 pub struct TokenResponse {
     pub access_token: String,

@@ -40,8 +40,6 @@ pub fn run(ctx: &Context, args: &TeamsArgs) -> Result<(), CliError> {
     Ok(())
 }
 
-/// A display string for a JSON field: strings verbatim, `null`/missing as
-/// empty, anything else in its JSON form.
 pub fn text(item: &Value, key: &str) -> String {
     match item.get(key) {
         None | Some(Value::Null) => String::new(),

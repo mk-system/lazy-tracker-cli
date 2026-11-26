@@ -285,8 +285,6 @@ fn build_update(args: &TicketsUpdateArgs) -> Result<Option<TicketUpdateRequest>,
     Ok(changed.then_some(request))
 }
 
-/// Resolves a ticket number to its UUID with its own spinner, as the update
-/// and delete commands report the lookup separately from the change itself.
 fn lookup_number(ctx: &Context, target: &TicketTarget) -> Result<Value, CliError> {
     let scope = ticket_ref::resolve_scope(ctx, target.team.as_deref(), target.project.as_deref())?;
     let ticket = with_spinner(ctx, "Looking up ticket...", "Ticket not found", || {
