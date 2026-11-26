@@ -549,6 +549,23 @@ fn skills_install_refuses_to_write_through_a_symlink() {
 }
 
 #[test]
+fn skills_install_project_refuses_a_symlinked_directory_in_the_repository() {
+    let env = TestEnv::new("https://api.example.com");
+    fs::create_dir_all(env.work.join(".git")).unwrap();
+    let outside = env.work.parent().unwrap().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    std::os::unix::fs::symlink(&outside, env.work.join(".claude")).unwrap();
+
+    let out = env.run(&["skills", "install", "--project", "--agent", "claude-code"]);
+    assert_eq!(out.code, Some(1));
+    assert!(
+        out.stderr
+            .contains("Refusing to write through symlinked directory")
+    );
+    assert!(!outside.join("skills").exists());
+}
+
+#[test]
 fn skills_install_without_agent_in_non_interactive_mode_fails() {
     let env = TestEnv::new("https://api.example.com");
     let out = env.run(&["skills", "install"]);

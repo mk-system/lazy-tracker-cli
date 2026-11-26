@@ -8,6 +8,7 @@ use crate::error::CliError;
 use crate::output::json::print_stdout;
 use crate::output::prompt::{ask, confirm};
 use crate::skills::agents::{self, ALL, Scope};
+use crate::skills::git_root::find_git_root;
 use crate::skills::{SKILL_CONTENT, SKILL_FILE_NAME};
 
 pub fn run(ctx: &Context, command: Option<SkillsCommand>) -> Result<(), CliError> {
@@ -96,6 +97,7 @@ fn install(ctx: &Context, args: &SkillsTargetArgs) -> Result<(), CliError> {
     let agent = resolve_agent(ctx, args.agent)?;
     let scope = resolve_scope(ctx, agent, args)?;
     let install_dir = agents::install_dir(agent, &scope, &ctx.cwd, ctx.home.as_deref())?;
+    reject_symlinked_project_dirs(ctx, &scope, &install_dir)?;
     let skill_path = install_dir.join(SKILL_FILE_NAME);
 
     if fs::read_to_string(&skill_path).is_ok_and(|existing| existing == SKILL_CONTENT) {
@@ -125,6 +127,36 @@ fn install(ctx: &Context, args: &SkillsTargetArgs) -> Result<(), CliError> {
     Ok(())
 }
 
+/// `--project` writes into a repository that may not be trusted, where a
+/// committed symlink such as `.claude` would carry the write outside it. The
+/// user scope is not checked: dotfile managers commonly symlink `~/.claude`.
+fn reject_symlinked_project_dirs(
+    ctx: &Context,
+    scope: &Scope,
+    install_dir: &Path,
+) -> Result<(), CliError> {
+    if !matches!(scope, Scope::Project) {
+        return Ok(());
+    }
+    let Some(root) = find_git_root(&ctx.cwd) else {
+        return Ok(());
+    };
+    let Ok(relative) = install_dir.strip_prefix(&root) else {
+        return Ok(());
+    };
+    let mut dir = root.clone();
+    for part in relative.components() {
+        dir.push(part);
+        if is_symlink(&dir) {
+            return Err(CliError::usage(format!(
+                "Refusing to write through symlinked directory: {}",
+                dir.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn is_symlink(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink())
 }
@@ -133,6 +165,7 @@ fn uninstall(ctx: &Context, args: &SkillsTargetArgs, force: bool) -> Result<(), 
     let agent = resolve_agent(ctx, args.agent)?;
     let scope = resolve_scope(ctx, agent, args)?;
     let install_dir = agents::install_dir(agent, &scope, &ctx.cwd, ctx.home.as_deref())?;
+    reject_symlinked_project_dirs(ctx, &scope, &install_dir)?;
     let skill_path = install_dir.join(SKILL_FILE_NAME);
 
     if !install_dir.exists() {
