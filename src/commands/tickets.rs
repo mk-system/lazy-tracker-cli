@@ -42,9 +42,9 @@ fn list(ctx: &Context, args: &TicketsListArgs) -> Result<(), CliError> {
     let resolved = resolve_team_project(
         args.team.as_deref(),
         args.project.as_deref(),
-        &ctx.cwd,
+        &ctx.project_file_search(),
         &ctx.settings,
-    );
+    )?;
     if resolved.is_none() && args.project.is_some() && args.team.is_none() {
         ctx.ui
             .warn("--project requires --team. Ignoring --project option.");
@@ -195,9 +195,9 @@ fn create(ctx: &Context, args: TicketsCreateArgs) -> Result<(), CliError> {
     let scope = resolve_team_project(
         args.team.as_deref(),
         args.project.as_deref(),
-        &ctx.cwd,
+        &ctx.project_file_search(),
         &ctx.settings,
-    )
+    )?
     .ok_or_else(|| {
         CliError::usage(
             "Team and project are required. Create .lazy-tracker.json or specify --team and --project options.",

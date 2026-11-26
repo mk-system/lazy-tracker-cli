@@ -19,7 +19,7 @@ pub fn resolve_scope(
     team: Option<&str>,
     project: Option<&str>,
 ) -> Result<TeamProject, CliError> {
-    resolve_team_project(team, project, &ctx.cwd, &ctx.settings)
+    resolve_team_project(team, project, &ctx.project_file_search(), &ctx.settings)?
         .ok_or_else(|| CliError::usage(TEAM_PROJECT_REQUIRED))
 }
 

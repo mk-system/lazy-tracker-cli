@@ -8,6 +8,7 @@ use crate::cli::GlobalArgs;
 use crate::config::api_url::{self, Source};
 use crate::config::legacy::{self, TokenMigration};
 use crate::config::paths;
+use crate::config::project_file::ProjectFileSearch;
 use crate::config::settings::Settings;
 use crate::error::CliError;
 use crate::output::Ui;
@@ -21,6 +22,7 @@ pub struct Env {
     pub api_url: Option<String>,
     pub insecure_token_file: bool,
     pub no_browser: bool,
+    pub project_file: Option<PathBuf>,
     pub no_color: bool,
     pub cwd: PathBuf,
 }
@@ -35,6 +37,9 @@ impl Env {
             api_url: var("LT_API_URL"),
             insecure_token_file: var("LT_INSECURE_TOKEN_FILE").as_deref() == Some("1"),
             no_browser: var("LT_NO_BROWSER").as_deref() == Some("1"),
+            project_file: var("LT_PROJECT_FILE")
+                .filter(|v| !v.is_empty())
+                .map(PathBuf::from),
             no_color: var("NO_COLOR").is_some_and(|v| !v.is_empty()),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
         }
@@ -55,6 +60,7 @@ pub struct Context {
     pub home: Option<PathBuf>,
     pub stdin_tty: bool,
     pub no_browser: bool,
+    pub project_file: Option<PathBuf>,
 }
 
 impl Context {
@@ -118,7 +124,16 @@ impl Context {
             home: env.home,
             stdin_tty: std::io::stdin().is_terminal(),
             no_browser: env.no_browser,
+            project_file: env.project_file,
         })
+    }
+
+    pub fn project_file_search(&self) -> ProjectFileSearch<'_> {
+        ProjectFileSearch {
+            cwd: &self.cwd,
+            home: self.home.as_deref(),
+            explicit: self.project_file.as_deref(),
+        }
     }
 
     pub fn api_url(&self) -> Result<&str, CliError> {
@@ -148,6 +163,7 @@ impl Context {
             home: None,
             stdin_tty: false,
             no_browser: true,
+            project_file: None,
         };
         (ctx, log)
     }
