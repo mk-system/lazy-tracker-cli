@@ -47,6 +47,9 @@ impl RawResponse {
 
 pub fn build_url(base: &str, segments: &[&str]) -> Result<String, CliError> {
     let invalid = || CliError::usage(format!("Invalid API URL: {base}"));
+    if let Some(segment) = segments.iter().find(|s| matches!(**s, "." | "..")) {
+        return Err(CliError::usage(format!("Invalid identifier: {segment}")));
+    }
     let mut url = Url::parse(base).map_err(|_| invalid())?;
     url.path_segments_mut()
         .map_err(|_| invalid())?
@@ -355,6 +358,18 @@ mod tests {
         assert!(err.to_string().contains("lt auth login --force"));
         assert!(h.ctx.store.load().unwrap().is_some());
         assert_eq!(h.server.count("POST", "/api/v1/oauth/token"), 1);
+    }
+
+    #[test]
+    fn dot_segments_are_rejected_instead_of_silently_dropped() {
+        for segment in [".", ".."] {
+            let err = build_url(
+                "https://api.example.com",
+                &["api", "v1", "tickets", segment],
+            )
+            .unwrap_err();
+            assert!(matches!(err, CliError::Usage(_)));
+        }
     }
 
     #[test]
