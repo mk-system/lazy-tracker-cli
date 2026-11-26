@@ -418,12 +418,28 @@ fn auth_login_while_logged_in_does_nothing() {
 }
 
 #[test]
-fn auth_logout_with_a_failed_revoke_reports_it_and_still_clears_tokens() {
+fn auth_logout_revoke_sends_only_the_access_token_and_clears_tokens() {
+    let server = MockServer::start(vec![Route::new("POST", "/api/v1/oauth/revoke").json("{}")]);
+    let env = logged_in(&server);
+    let access = env.tokens().unwrap()["accessToken"].clone();
+
+    let out = env.run(&["auth", "logout", "--revoke"]);
+    out.assert_success();
+    let revokes = server.requests();
+    assert_eq!(revokes.len(), 1);
+    let body: Value = serde_json::from_str(&revokes[0].body).unwrap();
+    assert_eq!(body["token"], access);
+    assert_eq!(body["token_type_hint"], "access_token");
+    assert!(!env.tokens_path().exists());
+}
+
+#[test]
+fn auth_logout_with_a_failed_revoke_fails_but_still_clears_tokens() {
     let server = MockServer::start(vec![Route::new("POST", "/api/v1/oauth/revoke").status(500)]);
     let env = logged_in(&server);
 
     let out = env.run(&["auth", "logout", "--revoke"]);
-    out.assert_success();
+    assert_eq!(out.code, Some(1));
     assert!(out.stderr.contains("Failed to revoke token"));
     assert!(out.stderr.contains("Logged out successfully."));
     assert!(!env.tokens_path().exists());

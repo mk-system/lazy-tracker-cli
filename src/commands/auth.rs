@@ -84,29 +84,42 @@ fn login(ctx: &Context, force: bool) -> Result<(), CliError> {
 }
 
 fn logout(ctx: &Context, revoke: bool) -> Result<(), CliError> {
-    let Some(tokens) = ctx.store.load()? else {
-        ctx.ui.info("Not currently logged in.");
-        return Ok(());
-    };
-
-    if revoke {
+    let mut revoked = true;
+    let logged_in = session::logout(ctx, |tokens| {
+        if !revoke {
+            return;
+        }
         ctx.ui.start_spinner("Revoking token...");
         let body = json!({ "token": tokens.access_token, "token_type_hint": "access_token" });
         match oauth::post(ctx, &["revoke"], &body, |e| e.to_string()) {
             Ok(response) if response.is_success() => ctx.ui.succeed_spinner("Token revoked"),
-            _ => ctx
-                .ui
-                .fail_spinner("Failed to revoke token (clearing local credentials anyway)"),
+            _ => {
+                revoked = false;
+                ctx.ui
+                    .fail_spinner("Failed to revoke token (clearing local credentials anyway)");
+            }
         }
-    }
+    })?;
 
-    session::logout(ctx)?;
+    if !logged_in {
+        ctx.ui.info("Not currently logged in.");
+        return Ok(());
+    }
     ctx.ui.success("Logged out successfully.");
-    Ok(())
+    if revoked {
+        Ok(())
+    } else {
+        Err(CliError::Auth(
+            "The token may still be valid on the server. Sign in again and retry `lt auth logout --revoke`."
+                .into(),
+        ))
+    }
 }
 
 fn status(ctx: &Context) -> Result<(), CliError> {
     let tokens = ctx.store.load()?;
+        // Only the access token is sent: the backend revokes the refresh token
+        // paired with it in the same call (`OAuthService.revokeToken`).
     let mut lines = vec![
         String::new(),
         style::bold("Authentication Status"),

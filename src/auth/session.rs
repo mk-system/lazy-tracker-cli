@@ -150,11 +150,18 @@ pub fn save_login(ctx: &Context, tokens: &TokenData) -> Result<(), CliError> {
     Ok(())
 }
 
-pub fn logout(ctx: &Context) -> Result<(), CliError> {
+/// Returns false when there was nothing to log out of. `before_clear` sees the
+/// tokens read under the lock, so a concurrent refresh cannot hand it a pair
+/// that is about to be replaced.
+pub fn logout(ctx: &Context, before_clear: impl FnOnce(&TokenData)) -> Result<bool, CliError> {
     let _lock = AuthLock::acquire(&ctx.config_dir)?;
+    let Some(tokens) = ctx.store.load()? else {
+        return Ok(false);
+    };
+    before_clear(&tokens);
     ctx.store.clear()?;
     clear_legacy(ctx);
-    Ok(())
+    Ok(true)
 }
 
 fn clear_all(ctx: &Context) {
@@ -429,7 +436,7 @@ mod tests {
     fn logout_also_removes_plaintext_tokens_left_by_the_bun_release() {
         let (_server, ctx, dir) = with_memory(vec![], Some(valid()));
         let (ctx, legacy) = with_legacy_tokens(ctx, dir.path());
-        logout(&ctx).unwrap();
+        logout(&ctx, |_| {}).unwrap();
 
         assert!(!crate::config::legacy::has_tokens(&legacy));
         assert!(std::fs::read_to_string(&legacy).unwrap().contains("config"));
@@ -452,9 +459,25 @@ mod tests {
     }
 
     #[test]
+    fn logout_hands_the_tokens_read_under_the_lock_to_the_revoke_step() {
+        let (_server, ctx, _dir) = with_memory(vec![], Some(valid()));
+        let mut seen = None;
+        assert!(logout(&ctx, |t| seen = Some(t.clone())).unwrap());
+        assert_eq!(seen, Some(valid()));
+    }
+
+    #[test]
+    fn logout_without_tokens_reports_nothing_to_do() {
+        let (_server, ctx, _dir) = with_memory(vec![], None);
+        let mut called = false;
+        assert!(!logout(&ctx, |_| called = true).unwrap());
+        assert!(!called);
+    }
+
+    #[test]
     fn logout_clears_the_store() {
         let (_server, ctx, _dir) = with_memory(vec![], Some(valid()));
-        logout(&ctx).unwrap();
+        logout(&ctx, |_| {}).unwrap();
         assert_eq!(stored(&ctx), None);
     }
 }
