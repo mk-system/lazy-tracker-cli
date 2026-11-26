@@ -2,50 +2,73 @@
 
 ## プロジェクト要約
 
-Lazy Tracker（プロジェクト管理 SaaS、mk-system 開発。社内利用が主だが外部への販売もしている）をターミナルから操作する CLI クライアント。**本リポジトリ自体は OSS として公開されている**（ユーザー確認 2026-08-29）。TypeScript + Bun 製で、`bun build --compile` によるシングルバイナリを GitHub Releases で配布する（`README.md` インストール節）。認可・データ永続化はバックエンド API（既定 `https://api.lazy-tracker.com`、`src/config/constants.ts` の `DEFAULT_API_URL`）側が持ち、本リポジトリはその HTTP クライアントに徹する。
+Lazy Tracker（プロジェクト管理 SaaS、mk-system 開発。mk-system 社内での利用が主だが、外部企業へ販売もしている）をターミナルから操作する CLI `lt`。**本リポジトリ自体は OSS として公開されている**（ユーザー確認 2026-08-29）。Rust + clap 製で、macOS（arm64 / x64）と Linux（x64 / arm64、musl 静的リンク）のシングルバイナリを GitHub Releases で配布する（`.github/workflows/release.yml`）。Windows は非サポート（`src/main.rs` の `compile_error!`）。v0.1.x は TypeScript + Bun 製で、v0.2.0 で Rust に書き換えた（PR #29）。
 
-姉妹プロジェクトに `lazy-tracker`（本体バックエンド/フロントエンド）、`lazy-tracker-lp`（LP）がある。
+認可・データ永続化はバックエンド API（既定 URL は `src/config/api_url.rs`）側が持ち、本リポジトリはその HTTP クライアントに徹する。姉妹リポジトリに `lazy-tracker`（バックエンド / フロントエンド）、`lazy-tracker-lp`（LP）がある。
 
-**このリポジトリが公開 OSS であることの帰結**: 利用者は mk-system の開発者に閉じない。Lazy Tracker を購入した外部顧客企業のユーザーも同じ CLI を使う。また、無関係な第三者もリポジトリを fork し PR を送れる — マージされてリリースされたバイナリは mk-system の開発者・外部顧客の双方に配布されるため、**悪意あるコード混入（サプライチェーン攻撃）は mk-system 内部に閉じた被害にならない**。
+**公開 OSS であることの帰結**: `lt` の利用者は mk-system の開発者に閉じず、Lazy Tracker を契約している外部企業のユーザーも同じバイナリを使う。無関係な第三者も fork から PR を送れる。マージ・リリースされたコードは mk-system の開発者と外部企業のユーザーの双方に配布されるため、**悪意あるコード混入（サプライチェーン攻撃）の被害は mk-system 内部に閉じない**。
 
 ## このシステムが使われる文脈
 
-- 利用者は mk-system の開発者に加え、Lazy Tracker を契約している外部顧客企業のユーザーも含む（`lt` は OSS 公開・Lazy Tracker 本体は販売されているため）。ターミナルからチーム / プロジェクト / チケット / コメントを操作する
-- 認証は OAuth 2.0 Device Authorization Grant（`src/auth/device-flow.ts`）。ブラウザで認可 → CLI がポーリングでトークン取得。`client_id` のみを送信する public client で client secret は持たない
-- team/project の解決は CLI オプション → リポジトリ直下の `.lazy-tracker.json` → グローバル設定（`conf` パッケージ、OS 標準の設定ディレクトリ）の優先順位でマージされる（`README.md` team/project の解決優先順位節）
-- `.lazy-tracker.json`（プロジェクトルートに置かれ、リポジトリに commit される想定のファイル）が読み取るのは team/project のみ。`apiUrl` は対象外（`src/config/project.ts` の `PartialProjectConfig` 型を参照）— 悪意あるコミットでこのファイルを書き換えても、リクエスト送信先（ひいては Bearer token の送り先）はハイジャックできない。`apiUrl` の指定元は CLI オプション / `LT_API_URL` 環境変数 / グローバル設定のみ
+- 利用者は mk-system の開発者と、Lazy Tracker を契約している外部企業のユーザー。ターミナルからチーム / プロジェクト / チケット / コメントを操作する。`lt skills install` で AI エージェント（Claude Code / Codex / Copilot / Cursor）向けの手順書を配布し、エージェントが `lt` を実行する使い方もある（`skills/lazy-tracker-cli/SKILL.md`）
+- 認証は OAuth 2.0 Device Authorization Grant（`src/auth/device_flow.rs`）。ブラウザで認可し、CLI がポーリングでトークンを得る。`client_id` だけを送る public client で、client secret は持たない
+- `lt auth login` で得たトークンはログイン時の team/project に限定されず、**ログインユーザーが所属する全 team/project にアクセスできる**（ユーザー確認 2026-08-29）。要求するスコープは読み書きの両方（`src/auth.rs` の `DEFAULT_SCOPES`）。アクセストークンの有効期間は 8 時間、リフレッシュトークンは 30 日（`lazy-tracker` リポジトリの `OAuthService` の `ACCESS_TOKEN_EXPIRATION_SECONDS` / `REFRESH_TOKEN_EXPIRATION_DAYS`、2026-11-26 に確認）。保存されたトークンが漏れると、リフレッシュで最長 30 日間なりすましを続けられる。`lt auth logout --revoke`（`src/commands/auth.rs` の `logout`）でサーバーに失効を依頼すると、アクセストークンと対のリフレッシュトークンが即時に無効になる（同 `revokeToken`。API の認証は失効済みトークンを受け付けない）
+- team/project のチケット・コメントは、その team/project の他のメンバーと共有するデータ。誤って削除・改変すると、実行者本人だけでなく他のメンバーの作業にも影響する
+- チケット・コメントには、認証情報・個人情報・外部企業との契約上の機密が書かれることがありうる（ユーザー確認 2026-11-26）。本文がログ・エラー表示・AI エージェントのコンテキストに流れる経路は、業務データ一般ではなく機微情報の露出として評価する
+- 利用者が不具合を報告する先は**公開の GitHub Issue** を想定している（ユーザー確認 2026-11-26）。`--verbose` のログやエラー表示に出たものは、利用者がそのまま貼り付けて公開しうる前提で評価する
+- **削除したデータを利用者は復元できない**（ユーザー確認 2026-11-26）。バックエンドのバックアップからの復元は可能だが、利用者が自由に行えるものではない
+- 削除の権限（ユーザー確認 2026-11-26。判定はバックエンド側）: team のロールが admin / member なら、他人のチケットを削除できる。他人のコメントはプロジェクトメンバーなら削除できる。viewer はどちらも削除できない。つまり **admin / member のトークンを使う `lt` は、自分以外が作ったチケットを消せる**
+- `lt` は開発者の専有マシンに限らず、**共有ホスト（踏み台等）でも使われる**（ユーザー確認 2026-08-29）。同一ホストの他ユーザーがプロセス引数を `ps` で見られる前提で評価する
+- 削除系コマンド（`tickets delete` / `comments delete`）は、stdin が TTY でなければ確認を出せず `--force` を求めて失敗する（`src/output/prompt.rs` の `ensure_can_confirm`）。そのため **AI エージェントから削除を実行する場合は事実上 `--force` 付きになる**。SKILL.md も `--force` を案内している
+- mk-system の CI から `lt` を呼ぶ運用は無い（ユーザー確認 2026-08-29）。CI 連携が始まったら、CI ログ経由のトークン漏洩経路を評価し直す必要がある
+- team/project は CLI オプション > `.lazy-tracker.json`（cwd から上位へ探索）> グローバル設定、の順で項目ごとにマージする（`src/config/project_file.rs`）。`.lazy-tracker.json` はリポジトリにコミットされる想定のファイルで、**読むのは `team` / `project` だけ**。API URL を読まないのは意図的で、悪意あるコミットでトークンの送信先を乗っ取らせないため
+- API URL は `--api-url` > `config.json` の `apiUrl` > `LT_API_URL` > 既定値の順で決まり、どの経路も `src/config/api_url.rs` の `validate`（https のみ、ループバックだけ http 可）を通る
+- 検証環境（ステージング）で発行したトークンは本番 API では通らない（ユーザー確認 2026-11-26）。主な理由は署名鍵ではなくバックエンドのセッション検証で、鍵が両環境で同じかは確認できていない。セッション検証の仕組みが変わったら、検証環境向けの経路で漏れたトークンの影響を評価し直す必要がある
+
+## 過去に実際に起きた問題
+
+- **トークンを「確実に無効」と分かる場合以外に破棄してはならない。** v0.1.x は API の 401 やリフレッシュの任意の失敗でローカルのトークンを消しており、サーバー側の一時的な不具合やネットワーク断でもログインが失われ、原因の切り分けも困難になった（issue #14、PR #29）。破棄してよいのはリフレッシュが 401 または 400 `invalid_grant` を返したときだけ（`src/auth/session.rs`）。トークンストアが読めないときに「未ログイン」として扱うことも同じ理由で禁止（`Ok(None)` は項目が確実に無いときだけ。`src/auth/store.rs`）
+- **OAuth トークンエンドポイントへのリクエストに、サーバーが受け付けると確認していないフィールドを足してはならない。** サーバーは未知フィールドを 400 で拒否し、v0.1.1 / v0.1.2 で全ユーザーのログインとリフレッシュが失敗してリリースを取り消した（issue #14、PR #11、保留中の PR #13）
+- **macOS 向けバイナリを Linux でクロスビルドしたり、再署名・検証の手順を外してはならない。** v0.1.3 以前の配布バイナリは署名が不正で、Apple Silicon では起動時に SIGKILL された（PR #20）。`release.yml` は macOS ランナーで両アーキテクチャをビルドし、ad-hoc 再署名 → `codesign --verify` を通す
 
 ## システム性質
 
-- 認証済み個人ユーザー（mk-system の開発者 + 外部顧客企業のユーザー）が使う CLI ツール。CLI 自身は外部公開された Web エンドポイントを持たない — 実行時の攻撃面はローカルファイルシステム（保存されたトークン）とローカル-API 間の通信に限られる
-- **本リポジトリは OSS 公開されているため、コード変更の攻撃面はローカル実行時とは別に存在する**（ユーザー確認 2026-08-29）。第三者が fork してマージ前提の PR を送れる。悪意あるコード（トークン窃取・任意コード実行等）が紛れ込んでマージ・リリースされた場合、mk-system の開発者と Lazy Tracker の外部顧客の双方に配布される — 単一組織内の被害に閉じない
-- マルチテナント分離・ロールベース制御はこのリポジトリのコードには存在しない。認可判定はバックエンド API 側が持つ（`lazy-tracker` リポジトリ側、本リポジトリからは検証不可）
-- 既存の `--team <key>` / `--project <key>` オプションを含め、CLI 側は team/project 識別子の値検証・所属チェックを一切行わず、そのまま API リクエストパスへ渡す設計（`src/commands/tickets/list.ts:91,105,112,119`）。今後 team/project スコープに関わるパラメータを追加するコマンドでも同型になる見込み — 「CLI 側に検証がない」ことそのものは意図された設計であり、severity は常にバックエンド側の認可実装（本リポジトリでは検証不可、❓ になりうる）に依存する
-- データ機密性: ローカルに保存されるのは access/refresh token のみ。mainブランチ時点では全プラットフォームでファイルシステムに平文保存（`README.md` 認証情報の保存場所節、`src/auth/store.ts` の `Conf` ストア）。macOS Keychain 連携は PR#5（未マージ）が提案中
-- リリース運用: CI (`.github/workflows/ci.yaml`) は Lint / Format check / Build のみ。自動テストは存在しない（`src/` 配下に `*.test.ts` / `*.spec.ts` なし、`package.json` に test スクリプトなし）
-- `.github/workflows/ci.yaml` のトリガーは `pull_request`（`pull_request_target` ではない）。外部 fork からの PR で CI が動く際、既定の `GITHUB_TOKEN` は read-only でリポジトリ Secrets は渡らない（GitHub Actions の既定挙動）。よって**フォーク PR の CI 実行時点**での Secrets 窃取は成立しにくいが、**マージ後のリリースビルド時点**（`bun run build:all` 等をメンテナ環境で実行する場面）のリスクは別に残る — 悪意あるコードは CI では検出されず、マージ後に初めて発火しうる
-- `lt` の実行端末は開発者の専有マシンに限らず、共有ホスト（踏み台等）で使われる場面もある（ユーザー確認 2026-08-29）。トークンを標準出力・プロセス引数に露出させる経路は、同一ホストの他ユーザーが `ps` 経由で観測できる前提を置いて評価する
-- mk-system の CI で `lt` を呼ぶ予定は無い（ユーザー確認 2026-08-29）。CI ログ経由のトークン漏洩経路は現時点で成立しないものとして扱う。CI 連携が始まったら本記述は無効
-- `lt auth login` で取得する OAuth トークンは、ログイン時の team/project に限定されず、所属する全 team/project へのアクセス権を持つ（ユーザー確認 2026-08-29）。トークン漏洩系 finding の impact は「1 team/project 分のデータ」ではなく「所属する全 team/project のデータ」として評価する
-- `lt tickets list` は team/project が解決できない場合（`.lazy-tracker.json` もグローバル設定も CLI オプションも無い場合）、スコープなしで `api.v1TicketsList()` を呼ぶ（`src/commands/tickets/list.ts:123-126`）。これは実装済みの挙動であり、ログインユーザーが所属する全 team/project のチケットを一度に返す。同じ team/project 解決パターンを再利用する新規コマンド（一括操作等）も同型の「無指定時は全件」挙動を引き継ぐ見込み
-- `open()`（`open` npm パッケージ）は execFile ベースで OS 既定のハンドラを起動する実装であり、渡す文字列によるシェルインジェクションのリスクは低い（`src/auth/device-flow.ts` の `openVerificationUri`）。一方でドメイン/スキームの検証は行っていないため、サーバーレスポンス由来の URL をそのまま `open()` に渡す経路が増えると、偽の認可ページへ誘導するフィッシング（OAuth device code phishing）のリスクになる — トークンが全 team/project 横断でアクセス権を持つため impact は高く評価する
+- 認証済みユーザー（mk-system の開発者と外部企業のユーザー）が使う CLI。CLI 自身は待ち受けるエンドポイントを持たない。実行時の攻撃面は、ローカルに保存したトークン、ローカルから API への通信、サーバーレスポンスの扱い、`lt skills install` によるファイル書き込み
+- **コード変更の攻撃面は実行時とは別に存在する**（公開 OSS のため。プロジェクト要約を参照）
+- マルチテナント分離・ロール制御はこのリポジトリに存在しない。認可判定はバックエンド API 側にあり、本リポジトリからは検証できない。CLI は team/project の識別子を検証せず、percent-encode してリクエストパスに渡すだけ（`src/api/client.rs` の `build_url`）。「CLI 側に所属チェックがない」こと自体は意図された設計で、その種の finding の severity はバックエンドの認可実装に依存する
+- `lt tickets list` は team/project を解決できないとき、スコープなしの一覧 API を呼び、ログインユーザーが所属する全 team/project のチケットを返す（`src/commands/tickets.rs` の `list`）。意図された挙動
+- チケット番号はプロジェクト内でのみ一意。番号での指定は team/project を解決できないとエラーになるが、UUID での指定は team/project なしで通る（`src/ticket_ref.rs`）
+- **トークンの保存先**（`src/auth/store.rs` の `select`）: macOS は Keychain（`/usr/bin/security` を絶対パスで起動、`src/auth/store/keychain.rs`）、Linux は Secret Service（`src/auth/store/secret_service.rs`）、`LT_INSECURE_TOKEN_FILE=1` のときだけ設定ディレクトリの `tokens.json`（0600）に平文で置く。平文ファイルは利用者が明示的に選ぶ逃げ道で、README に記載がある。Secret Service が使えない Linux（ヘッドレス・コンテナ・踏み台）では、自動で平文に切り替えず `StoreError::Unavailable` で失敗し、`LT_INSECURE_TOKEN_FILE=1` を案内する（`secret_service.rs` の `GUIDANCE`）。これは意図された設計で、利用者が選んでいないのに平文へ降格する変更は、下の 🔵 止まりの扱いを受けない
+- Keychain を Security.framework で直接読み書きしないのは意図的（`keychain.rs` 冒頭のコメント）。既存項目の ACL は `/usr/bin/security` を信頼しており、ad-hoc 署名の `lt` はリリースごとに署名上の同一性が変わるため、直接読むと更新のたびに許可ダイアログが出て、SSH などの非対話セッションでは失敗する。直接呼び出しへの置き換えは、ログインが使えなくなる退行として扱う
+- Keychain への書き込みは値を `security -i` の stdin で渡す。行が長すぎる場合と、ASCII 以外または制御文字を含む場合だけ argv にフォールバックする（`keychain.rs` の `plan_write`）。argv に載ると同一ホストの他ユーザーから `ps` で見えるが、通常のトークン（JSON で数百バイト）はこの条件に当たらない。`security -i` が長い行を分割して途中までの値を保存してしまう挙動を避けるための既知のトレードオフ
+- トークンのリフレッシュと書き換えは `<config_dir>/auth.lock` の排他ロック内で行う（`src/auth/lock.rs`、`src/auth/session.rs`）。リフレッシュトークンはサーバー側でローテーションされるため、ロック外で書き換えると並行実行した別プロセスの更新を古い値で上書きし、ログインが失われる
+- サーバーが返す認可 URL は `api_url::is_safe_to_open` でスキームだけを確かめてからブラウザで開く（`src/auth/device_flow.rs` の `open_browser`）。ドメインは確かめていない。`is_safe_to_open` は `validate` をそのまま呼ぶので、`validate` を緩める変更はブラウザで開く URL の検証も同時に緩める
+- `--verbose` のログ（`src/log.rs`）は method / URL / ステータス / 経過時間 / エラーボディだけを stderr に出す。ヘッダ・トークン・OAuth エンドポイントのボディは出さない設計。OAuth の通信（`src/auth/oauth.rs`）も通常の API と同じ `transmit`（`src/api/client.rs`）を通り、何をログに出すかは呼び出し側が決める。`transmit` でボディやヘッダを出すようにすると、リフレッシュトークンや device code もログに出る
+- `lt skills install` は `skills/lazy-tracker-cli/SKILL.md`（`include_str!` でバイナリに埋め込み）を、エージェントが信頼して読み込むディレクトリ（`.claude/skills` 等）に書き込む。書き込み先のスコープはユーザー（ホーム配下）・プロジェクト・任意パスの 3 種（`src/skills/agents.rs`）。どのスコープでも SKILL.md 自体が symlink なら書き込みを拒否し（`src/commands/skills.rs` の `install`）、既存ファイルは確認なしで上書きする。`--project` の git root は既知のレイアウトだけで辿る（`src/skills/git_root.rs`）
+- `skills/` の変更に対する CI の警告はマージを止めない。fork からの PR を止める関門はレビューだけ
+- CI（`.github/workflows/ci.yaml`）は `pull_request` トリガーで、`permissions: contents: read`。fork からの PR では Secrets が渡らない。ubuntu / macOS で fmt → clippy → test → release build を実行し、`skills/` 配下が変わると警告を出す
+- リリース（`.github/workflows/release.yml`）はタグ push で動き、`contents: write` は Release を作る最後のジョブだけが持つ。配布バイナリは `build` ジョブで作られ、そのまま Release に載る。`SHA256SUMS` は同じワークフローで作るので、ビルド中の改ざんは検出できない。attestation などの来歴証明は無い
+- workflow の action はコミット SHA で固定し、行末に版を書く規約（`CLAUDE.md` のリリース節）。ただしリポジトリ内に強制する仕組み（`actions.lock` 等）は無く、レビューで守っている
+- 依存は crates.io から取得し、`Cargo.lock` をコミットしている。`build.rs` は無い。依存更新は Renovate（`renovate.json`）
 
 ## severity 判断ガイド
 
 以下は **🔵 改善提案** 止まりとして扱う:
 
-- ローカルファイルシステム上のトークン平文保存そのもの（README で明記済み・利用者への注意喚起あり。既知のリスクとして受容されている状態への指摘）
-- CI（Lint/Format/Build のみ、テストなし）の非改善を理由にした一般的な「テストがない」指摘 — このリポジトリの既知の状態であり、repo-context 追記時点では新規指摘の価値が低い
+- `LT_INSECURE_TOKEN_FILE=1` を利用者が明示的に設定した場合の平文保存そのもの（README に記載済み）。自動フォールバックなど、利用者が選ばずに平文になる経路は含まない
+- Keychain 書き込みの argv フォールバックで値が `ps` から見えうること（システム性質に書いたトレードオフ）。この扱いはこのフォールバックだけに限る。フォールバックの条件を広げる変更や、トークンを argv・stdout に載せる別の経路には当てはめない
+- CLI が team/project 識別子の所属チェックをしないこと（認可はバックエンドの責務）
 
-以下は通常通り **🔴 攻撃可能 / 🟡 リスク有** として扱う:
+以下は通常通り **🔴 攻撃可能 / 🟡 リスク有** として扱う。上の 🔵 止まりの扱いを受けないという意味で、severity 自体は `severity-levels.md` の表で impact × likelihood から決める:
 
-- device flow・token refresh の実装不備（token の検証省略、状態遷移の不整合など） — このリポジトリで実際に auth 関連の不具合(PR#5 で対応中)が起きているため警戒度は高い
-- 保存済みトークンがログ・エラーメッセージ・外部送信先に漏れる経路
-- トークンを標準出力・プロセス引数・ファイルへ露出させる経路（例: トークンをそのまま表示するデバッグ用サブコマンド、`--token` のようなコマンドライン引数での受け渡し） — 共有ホスト利用があるため同一ホストの他ユーザーによる `ps` 経由の観測が現実的な前提になり、かつトークンは全 team/project 横断でアクセス権を持つため impact は高い。攻撃者側も認証済み開発者だが、被害者が所属していて攻撃者が所属しない team/project のデータに攻撃者がアクセスできるようになる点で「権限昇格の差分」があり、hard suppression の対象にはしない
-- 本リポジトリが OSS 公開されていることに起因するサプライチェーン攻撃の経路（不審な新規依存追加、ビルド/インストールスクリプトの悪用、外部 PR によるトークン窃取・任意コード実行コードの混入など）— 「変更者は信頼できる mk-system 開発者」という前提は成立しない。マージ・リリースされれば mk-system の開発者と Lazy Tracker の外部顧客の双方に配布される
-- **「pwn request」パターン**（`.github/workflows/*.yml` のトリガーを `pull_request_target` にし、`actions/checkout` で fork PR の head SHA を明示チェックアウトする組み合わせ）— base リポジトリの `GITHUB_TOKEN`（write scope や secrets を持ちうる）で fork 由来の任意コードが実行される既知の攻撃パターン。mainブランチ時点（2026-08-29 確認）の `.github/workflows/ci.yaml` はこのパターンに該当しない（`pull_request` トリガーで fork 由来コードは read-only 権限でのみ実行される）が、**このパターンへの変更を提案する PR（トリガー種別の変更・checkout の ref 変更）は「CI 高速化」等の一見無害な理由でも通常検出対象として厳格に扱う**
-- 破壊的操作（削除等）を確認プロンプトなしで一括実行できるようにする変更 — 既存の team/project 未指定時「全件返す」挙動（上記）と組み合わさると、被害範囲が実行者個人の作業内容を超えて、所属する team/project 全体に及ぶ設計になりやすい
-- サーバーレスポンス由来の文字列を検証なしで `open()` 等に渡し、ユーザーの確認なしにブラウザ/外部アプリを起動させる経路（フィッシング誘導）
+- トークンを破棄する条件を広げる変更、ストアの読み取り失敗を未ログインとして扱う変更、`auth.lock` の外でトークンを書き換える変更（「過去に実際に起きた問題」を参照）
+- トークンがログ・エラーメッセージ・stdout・プロセス引数・ファイルに出る経路。利用者の明示的な操作で出す機能（トークンを表示するサブコマンド等）も含む。共有ホストで使われるため、`ps` による観測は現実的な前提になる。トークンは所属する全 team/project にアクセスできるので、攻撃者が本来アクセスできない team/project のデータに届く権限昇格の差分がある
+- API URL やブラウザで開く URL の検証（`api_url::validate` / `is_safe_to_open`）を通らない経路の追加。`.lazy-tracker.json` から API URL を読む変更も含む
+- サーバーレスポンス由来の文字列を確認なしにブラウザ・外部コマンドへ渡す経路（OAuth device code phishing）
+- 公開 OSS であることに起因するサプライチェーンの経路: 不審な依存追加（crate と GitHub Actions の action の両方。SHA で固定しない action の追加を含む）、`build.rs` や proc-macro の追加、外部 PR によるトークン窃取・任意コード実行コードの混入。「変更者は信頼できる mk-system 開発者」という前提は成立しない
+- **「pwn request」パターン**（トリガーを `pull_request_target` にし、fork の head を checkout する組み合わせ）や、workflow の `permissions` を広げる変更。「CI 高速化」など一見無害な理由でも厳格に扱う
+- `skills/` 配下の変更と `lt skills install` の書き込み先の変更。エージェントが信頼して実行する指示として配布されるため、自然言語の内容自体がプロンプトインジェクションの経路になる
+- 削除などの破壊的操作を確認なしで実行させる変更。コードの変更だけでなく、`skills/` の手順書で AI エージェントに確認なしの削除（`--force`）を指示する変更も含む。team/project 未指定時に全件を対象にする挙動と組み合わさると、被害が所属する全 team/project に及ぶ
 
 ## anti-suppression list (context 無視で通常検出を維持)
 
@@ -59,9 +82,8 @@ Lazy Tracker（プロジェクト管理 SaaS、mk-system 開発。社内利用�
 - **暗号化の不適切な利用** (弱い algorithm、固定 IV、適切でない padding)
 - **デシリアライゼーション攻撃**
 - **パストラバーサル / 任意ファイル書き込み**（ローカルファイルシステムへの書き込みを伴うコマンド全般）
+- **コマンドインジェクション**（`/usr/bin/security`・ブラウザ起動・git など外部コマンドに渡す引数）
 
 ## 自動生成ファイルの source_hint
 
-| 生成 path パターン | 生成元 |
-|---|---|
-| `src/api/__generated__/**` | バックエンド（`lazy-tracker` リポジトリ）の OpenAPI 定義。`bun run generate-api`（`src/api/lib/generator.ts`、`swagger-typescript-api`）で再生成 |
+自動生成ファイルは無い。API クライアント（`src/api/endpoints.rs`）は OpenAPI から生成せず手書きしている。
