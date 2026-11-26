@@ -11,6 +11,7 @@ use crate::context::Context;
 use crate::error::CliError;
 use crate::output::json::{print_json, print_stdout};
 use crate::output::prompt::{confirm, ensure_can_confirm};
+use crate::output::style;
 use crate::output::table::render;
 use crate::ticket_ref::{self, is_ticket_number, scope_fields};
 
@@ -340,7 +341,7 @@ fn delete(ctx: &Context, target: &TicketTarget, force: bool) -> Result<(), CliEr
         let shown = if title.is_empty() {
             String::new()
         } else {
-            format!(" \"{title}\"")
+            format!(" \"{}\"", style::strip_controls(&title))
         };
         let message = format!("Are you sure you want to delete ticket{shown}?");
         if !confirm(&ctx.ui, ctx.stdin_tty, &message)? {

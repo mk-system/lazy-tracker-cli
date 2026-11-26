@@ -137,7 +137,10 @@ fn status(ctx: &Context) -> Result<(), CliError> {
             describe_instant(at, now)
         ));
     }
-    lines.push(format!("  Scopes: {}", tokens.scope));
+    lines.push(format!(
+        "  Scopes: {}",
+        style::strip_controls(&tokens.scope)
+    ));
     if let (Ok(url), Source::Flag | Source::Settings) = (&ctx.api_url, ctx.api_url_source) {
         lines.push(format!("  API URL: {url}"));
     }

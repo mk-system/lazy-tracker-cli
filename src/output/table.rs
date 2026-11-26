@@ -19,6 +19,10 @@ pub fn truncate(text: &str, max: usize) -> String {
 }
 
 pub fn render(headers: &[&str], rows: &[Vec<String>], bold_header: bool) -> String {
+    let rows: Vec<Vec<String>> = rows
+        .iter()
+        .map(|row| row.iter().map(|cell| style::strip_controls(cell)).collect())
+        .collect();
     let widths: Vec<usize> = headers
         .iter()
         .enumerate()
@@ -110,5 +114,15 @@ mod tests {
 
         assert_eq!(cut, "オフィ...");
         assert!(cut.width() <= 9);
+    }
+
+    #[test]
+    fn render_replaces_control_characters_in_cells() {
+        let rows = vec![vec!["a\u{1b}]0;x\u{7}b".to_owned()]];
+        let rendered = render(&["T"], &rows, false);
+
+        assert!(!rendered.contains('\u{1b}'));
+        assert!(!rendered.contains('\u{7}'));
+        assert!(rendered.ends_with("a?]0;x?b"));
     }
 }
