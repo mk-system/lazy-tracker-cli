@@ -1,24 +1,35 @@
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
 use crate::output::style;
 
-/// Cuts `text` to `max` characters, marking the cut with "...".
+/// Cuts `text` to at most `max` terminal columns, marking the cut with "...".
 pub fn truncate(text: &str, max: usize) -> String {
-    if text.chars().count() <= max {
+    if text.width() <= max {
         return text.to_owned();
     }
-    let kept: String = text.chars().take(max.saturating_sub(3)).collect();
+    let budget = max.saturating_sub(3);
+    let mut used = 0;
+    let kept: String = text
+        .chars()
+        .take_while(|c| {
+            used += c.width().unwrap_or(0);
+            used <= budget
+        })
+        .collect();
     format!("{kept}...")
 }
 
 /// Left-aligned columns separated by two spaces, with a dashed rule under the
-/// header. Cells are measured in characters.
+/// header. Cells are measured in terminal columns, so wide (CJK) characters
+/// count twice.
 pub fn render(headers: &[&str], rows: &[Vec<String>], bold_header: bool) -> String {
     let widths: Vec<usize> = headers
         .iter()
         .enumerate()
         .map(|(i, header)| {
             rows.iter()
-                .map(|row| row.get(i).map_or(0, |cell| cell.chars().count()))
-                .chain(std::iter::once(header.chars().count()))
+                .map(|row| row.get(i).map_or(0, |cell| cell.width()))
+                .chain(std::iter::once(header.width()))
                 .max()
                 .unwrap_or(0)
         })
@@ -48,7 +59,7 @@ fn join_padded<'a>(cells: impl Iterator<Item = &'a str>, widths: &[usize]) -> St
     cells
         .zip(widths)
         .map(|(cell, width)| {
-            let pad = width.saturating_sub(cell.chars().count());
+            let pad = width.saturating_sub(cell.width());
             format!("{cell}{}", " ".repeat(pad))
         })
         .collect::<Vec<_>>()
@@ -81,5 +92,27 @@ mod tests {
             rendered,
             "#   Title    \n--  ---------\n1   Fix login\n12  Doc      "
         );
+    }
+
+    #[test]
+    fn render_aligns_columns_after_wide_characters() {
+        let rows = vec![
+            vec!["オフィス".to_owned(), "10".to_owned()],
+            vec!["forge".to_owned(), "2".to_owned()],
+        ];
+        let rendered = render(&["Name", "V"], &rows, false);
+
+        assert_eq!(
+            rendered,
+            "Name      V \n--------  --\nオフィス  10\nforge     2 "
+        );
+    }
+
+    #[test]
+    fn truncate_counts_wide_characters_as_two_columns() {
+        let cut = truncate("オフィスのレイアウト", 9);
+
+        assert_eq!(cut, "オフィ...");
+        assert!(cut.width() <= 9);
     }
 }

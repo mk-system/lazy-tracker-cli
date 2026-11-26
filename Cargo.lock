@@ -1013,6 +1013,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "unicode-width",
  "ureq",
  "url",
  "zbus-secret-service-keyring-store",

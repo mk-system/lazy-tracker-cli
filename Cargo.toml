@@ -16,6 +16,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 thiserror = "2.0.21"
 ureq = { version = "3.5.2", features = ["json"] }
+unicode-width = "0.2.3"
 url = "2.5.9"
 
 [target.'cfg(target_os = "linux")'.dependencies]
