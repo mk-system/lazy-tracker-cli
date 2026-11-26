@@ -22,9 +22,13 @@ pub fn validate(raw: &str) -> Result<String, String> {
     Ok(raw.trim_end_matches('/').to_owned())
 }
 
-/// Same rule for any URL the CLI is about to hand to a browser.
-pub fn is_safe_to_open(raw: &str) -> bool {
-    validate(raw).is_ok()
+/// The backend serves the verification page from the API host itself, so a
+/// URL pointing anywhere else is treated as a phishing attempt.
+pub fn is_safe_to_open(raw: &str, api_url: &str) -> bool {
+    let (Ok(target), Ok(api)) = (Url::parse(raw), Url::parse(api_url)) else {
+        return false;
+    };
+    validate(raw).is_ok() && target.origin() == api.origin()
 }
 
 fn is_loopback(url: &Url) -> bool {
@@ -65,6 +69,25 @@ pub fn resolve(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_urls_on_the_api_origin_are_safe_to_open() {
+        let api = "https://api.lazy-tracker.com";
+        assert!(is_safe_to_open(
+            "https://api.lazy-tracker.com/oauth/device?user_code=A",
+            api
+        ));
+        assert!(!is_safe_to_open("https://evil.example/oauth/device", api));
+        assert!(!is_safe_to_open(
+            "https://api.lazy-tracker.com:8443/oauth/device",
+            api
+        ));
+        assert!(!is_safe_to_open(
+            "http://api.lazy-tracker.com/oauth/device",
+            api
+        ));
+        assert!(!is_safe_to_open("file:///etc/passwd", api));
+    }
 
     #[test]
     fn plain_http_to_a_remote_host_is_rejected() {

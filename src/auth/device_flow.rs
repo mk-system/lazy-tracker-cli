@@ -125,10 +125,8 @@ pub fn poll_for_token(
     }
 }
 
-/// Opens `uri` in the default browser. The URI comes from the server, so it
-/// must pass the same scheme check as the API URL before anything opens it.
-pub fn open_browser(uri: &str) -> Result<(), String> {
-    if !api_url::is_safe_to_open(uri) {
+pub fn open_browser(uri: &str, api_url: &str) -> Result<(), String> {
+    if !api_url::is_safe_to_open(uri, api_url) {
         return Err(format!("refusing to open an unexpected URL: {uri}"));
     }
     let opener = if cfg!(target_os = "macos") {
@@ -251,7 +249,9 @@ mod tests {
 
     #[test]
     fn urls_that_fail_the_api_url_rule_are_never_opened() {
-        assert!(open_browser("http://example.com/device").is_err());
-        assert!(open_browser("file:///etc/passwd").is_err());
+        let api = "https://api.example.com";
+        assert!(open_browser("http://example.com/device", api).is_err());
+        assert!(open_browser("https://evil.example/device", api).is_err());
+        assert!(open_browser("file:///etc/passwd", api).is_err());
     }
 }

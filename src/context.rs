@@ -20,6 +20,7 @@ pub struct Env {
     pub home: Option<PathBuf>,
     pub api_url: Option<String>,
     pub insecure_token_file: bool,
+    pub no_browser: bool,
     pub no_color: bool,
     pub cwd: PathBuf,
 }
@@ -33,6 +34,7 @@ impl Env {
             home: std::env::home_dir(),
             api_url: var("LT_API_URL"),
             insecure_token_file: var("LT_INSECURE_TOKEN_FILE").as_deref() == Some("1"),
+            no_browser: var("LT_NO_BROWSER").as_deref() == Some("1"),
             no_color: var("NO_COLOR").is_some_and(|v| !v.is_empty()),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
         }
@@ -52,6 +54,7 @@ pub struct Context {
     pub cwd: PathBuf,
     pub home: Option<PathBuf>,
     pub stdin_tty: bool,
+    pub no_browser: bool,
 }
 
 impl Context {
@@ -114,6 +117,7 @@ impl Context {
             cwd: env.cwd,
             home: env.home,
             stdin_tty: std::io::stdin().is_terminal(),
+            no_browser: env.no_browser,
         })
     }
 
@@ -143,6 +147,7 @@ impl Context {
             cwd: config_dir,
             home: None,
             stdin_tty: false,
+            no_browser: true,
         };
         (ctx, log)
     }

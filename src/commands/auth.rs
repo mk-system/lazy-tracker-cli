@@ -5,7 +5,7 @@ use serde_json::json;
 use crate::auth::token::{TokenData, now_ms};
 use crate::auth::{device_flow, oauth, session};
 use crate::cli::AuthCommand;
-use crate::config::api_url::Source;
+use crate::config::api_url::{self, Source};
 use crate::context::Context;
 use crate::error::{CliError, StoreError};
 use crate::output::json::print_stdout;
@@ -43,25 +43,41 @@ fn login(ctx: &Context, force: bool) -> Result<(), CliError> {
 
     let result = (|| {
         let code = device_flow::request_device_code(ctx)?;
-        ui.line("Your device code is:");
-        ui.line("");
-        ui.line(&format!("  {}", style::bold_cyan(&code.user_code)));
-        ui.line("");
-        ui.line("Opening browser to authorize...");
-        ui.line(&style::dim(&format!(
-            "If the browser doesn't open, visit: {}",
-            code.verification_uri
-        )));
-        ui.line("");
-
         let target = code
             .verification_uri_complete
             .as_deref()
             .unwrap_or(&code.verification_uri);
-        if let Err(e) = device_flow::open_browser(target) {
-            ui.warn(&format!(
-                "Could not open a browser ({e}). Visit the URL above."
-            ));
+        let api = ctx.api_url()?;
+        for uri in [code.verification_uri.as_str(), target] {
+            if !api_url::is_safe_to_open(uri, api) {
+                return Err(CliError::Auth(format!(
+                    "The server returned an unexpected verification URL: {}",
+                    style::strip_controls(uri)
+                )));
+            }
+        }
+        ui.line("Your device code is:");
+        ui.line("");
+        ui.line(&format!(
+            "  {}",
+            style::bold_cyan(&style::strip_controls(&code.user_code))
+        ));
+        ui.line("");
+        if ctx.no_browser {
+            ui.line(&format!("Visit: {}", code.verification_uri));
+            ui.line("");
+        } else {
+            ui.line("Opening browser to authorize...");
+            ui.line(&style::dim(&format!(
+                "If the browser doesn't open, visit: {}",
+                code.verification_uri
+            )));
+            ui.line("");
+            if let Err(e) = device_flow::open_browser(target, api) {
+                ui.warn(&format!(
+                    "Could not open a browser ({e}). Visit the URL above."
+                ));
+            }
         }
 
         ui.start_spinner("Waiting for authorization...");
@@ -90,6 +106,8 @@ fn logout(ctx: &Context, revoke: bool) -> Result<(), CliError> {
             return;
         }
         ctx.ui.start_spinner("Revoking token...");
+        // Only the access token is sent: the backend revokes the refresh token
+        // paired with it in the same call (`OAuthService.revokeToken`).
         let body = json!({ "token": tokens.access_token, "token_type_hint": "access_token" });
         match oauth::post(ctx, &["revoke"], &body, |e| e.to_string()) {
             Ok(response) if response.is_success() => ctx.ui.succeed_spinner("Token revoked"),
@@ -118,8 +136,6 @@ fn logout(ctx: &Context, revoke: bool) -> Result<(), CliError> {
 
 fn status(ctx: &Context) -> Result<(), CliError> {
     let tokens = ctx.store.load()?;
-        // Only the access token is sent: the backend revokes the refresh token
-        // paired with it in the same call (`OAuthService.revokeToken`).
     let mut lines = vec![
         String::new(),
         style::bold("Authentication Status"),

@@ -107,6 +107,11 @@ impl MockServer {
         Self { port, state }
     }
 
+    /// For routes whose body has to mention the server's own address.
+    pub fn push(&self, route: Route) {
+        self.state.lock().unwrap().routes.push(route);
+    }
+
     pub fn url(&self) -> String {
         format!("http://127.0.0.1:{}", self.port)
     }

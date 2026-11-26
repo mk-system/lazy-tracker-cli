@@ -47,6 +47,7 @@ impl TestEnv {
             .env("XDG_CONFIG_HOME", self.home.parent().unwrap().join("xdg"))
             .env("LT_CONFIG_DIR", &self.config_dir)
             .env("LT_INSECURE_TOKEN_FILE", "1")
+            .env("LT_NO_BROWSER", "1")
             .env("LT_API_URL", &self.api_url)
             .env("NO_COLOR", "1")
             .current_dir(&self.work)

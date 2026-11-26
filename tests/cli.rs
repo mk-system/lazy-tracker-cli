@@ -365,18 +365,20 @@ fn auth_status_shows_utc_expiry_and_the_plaintext_storage() {
 
 #[test]
 fn auth_login_completes_the_device_flow_and_stores_tokens_privately() {
-    let server = MockServer::start(vec![
-        Route::new("POST", "/api/v1/oauth/device/code").json(
-            r#"{"device_code":"dev-1","user_code":"ABCD-EFGH","verification_uri":"http://example.invalid/device","verification_uri_complete":"http://example.invalid/device?code=ABCD","expires_in":600,"interval":1}"#,
-        ),
+    let server = MockServer::start(vec![]);
+    let verify = format!("{}/oauth/device", server.url());
+    server.push(Route::new("POST", "/api/v1/oauth/device/code").json(&format!(
+        r#"{{"device_code":"dev-1","user_code":"ABCD-EFGH","verification_uri":"{verify}","verification_uri_complete":"{verify}?user_code=ABCD-EFGH","expires_in":600,"interval":1}}"#
+    )));
+    server.push(
         Route::new("POST", TOKEN_PATH)
             .status(400)
             .json(r#"{"error":"authorization_pending"}"#)
             .times(1),
-        Route::new("POST", TOKEN_PATH).json(
-            r#"{"access_token":"issued","refresh_token":"issued-r","expires_in":3600,"refresh_token_expires_in":2592000,"scope":"read write","token_type":"Bearer"}"#,
-        ),
-    ]);
+    );
+    server.push(Route::new("POST", TOKEN_PATH).json(
+        r#"{"access_token":"issued","refresh_token":"issued-r","expires_in":3600,"refresh_token_expires_in":2592000,"scope":"read write","token_type":"Bearer"}"#,
+    ));
     let env = TestEnv::new(&server.url());
 
     let out = env.run(&["auth", "login"]);
@@ -385,8 +387,7 @@ fn auth_login_completes_the_device_flow_and_stores_tokens_privately() {
     assert!(out.stdout.is_empty());
     assert!(out.stderr.contains("ABCD-EFGH"));
     assert!(out.stderr.contains("You are now logged in"));
-    // The server-supplied URL fails the https rule, so it is never opened.
-    assert!(out.stderr.contains("Could not open a browser"));
+    assert!(out.stderr.contains(&verify));
     let tokens = env.tokens().unwrap();
     assert_eq!(tokens["accessToken"], "issued");
     assert!(tokens["refreshTokenExpiresAt"].is_u64());
@@ -404,6 +405,22 @@ fn auth_login_completes_the_device_flow_and_stores_tokens_privately() {
         "urn:ietf:params:oauth:grant-type:device_code"
     );
     assert_eq!(body["device_code"], "dev-1");
+}
+
+#[test]
+fn auth_login_stops_before_showing_a_verification_url_off_the_api_origin() {
+    let server = MockServer::start(vec![Route::new("POST", "/api/v1/oauth/device/code").json(
+        r#"{"device_code":"dev-1","user_code":"ABCD-EFGH","verification_uri":"https://example.invalid/device","expires_in":600,"interval":1}"#,
+    )]);
+    let env = TestEnv::new(&server.url());
+
+    let out = env.run(&["auth", "login"]);
+    assert_eq!(out.code, Some(1));
+    assert!(out.stderr.contains("unexpected verification URL"));
+    assert!(!out.stderr.contains("Visit:"));
+    assert!(!out.stderr.contains("ABCD-EFGH"));
+    assert_eq!(server.requests().len(), 1);
+    assert!(env.tokens().is_none());
 }
 
 #[test]
