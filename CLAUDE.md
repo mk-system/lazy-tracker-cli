@@ -41,8 +41,8 @@ CI（`.github/workflows/ci.yaml`）は ubuntu / macOS で fmt → clippy → tes
   - Secret Service は `keyring`（`v1` feature．Linux では zbus ストアのみ有効，pure Rust で OpenSSL / tokio なし）．ワーカースレッドで呼んで 30 秒で打ち切る．keyutils へのフォールバックはしない．
 - **設定の解決**（`src/config/`）:
   - 設定ディレクトリ: `LT_CONFIG_DIR` > `$XDG_CONFIG_HOME/lazy-tracker-cli` > `~/.config/lazy-tracker-cli`（macOS も同じ）．`config.json` は一時ファイル + rename で 0600．
-  - API URL: `--api-url`（その実行限り，永続化しない）> `config.json` の `apiUrl` > `LT_API_URL` > 既定値．どの経路でも `api_url::validate`（https のみ．ループバックだけ http 可）を通す．ブラウザで開く URL も同じ規則で検証する．
-  - team/project: CLI オプション > `.lazy-tracker.json`（cwd から上位へ探索，`team`/`project` のみ読む）> グローバル設定，を項目ごとにマージ（`project_file.rs`）．`.lazy-tracker.json` から API URL を読まないのは意図的（コミットされたファイルでトークン送信先を乗っ取らせないため）．
+  - API URL: `--api-url`（その実行限り，永続化しない）> `config.json` の `apiUrl` > `LT_API_URL` > 既定値．どの経路でも `api_url::validate`（https のみ．ループバックだけ http 可）を通す．ブラウザで開く認可 URL は同じ規則に加えて，API URL と同じ origin であることを求める（`is_safe_to_open`．バックエンドは認可ページを API ホストから配信している）．
+  - team/project: CLI オプション > `.lazy-tracker.json`（cwd から git root まで探索．リポジトリ外では HOME まで．それより上は `LT_PROJECT_FILE` で明示したときだけ読む．壊れたファイルはエラー．`team`/`project` のみ読む）> グローバル設定，を項目ごとにマージ（`project_file.rs`）．`.lazy-tracker.json` から API URL を読まないのは意図的（コミットされたファイルでトークン送信先を乗っ取らせないため）．
   - Bun 版（v0.1.x）の `lazy-tracker-cli-nodejs/config.json` からの移行は `legacy.rs`．`LT_CONFIG_DIR` 設定時は行わない．logout / トークン破棄時は旧ファイルの `tokens` も消す．
   - チケット番号はプロジェクト内でのみ一意．数字のみの引数は team/project を解決して番号 → UUID に変換する（`src/ticket_ref.rs`）．コメント API は UUID でしか引けない．
 - **出力規約**（`src/output/`）: stdout はコマンドの結果専用（JSON は `print_json` で 2 スペースインデント，`--table` のテーブル，`config` / `auth status` の表示，`skills` の本文）．スピナー（indicatif，stderr が TTY のときだけ動く）・`✓ ✗ ! i` の状態行・確認プロンプト・診断ログはすべて stderr（`Ui`）．`--verbose` の `debug*`（`src/log.rs`）は method / URL / ステータス / 経過 ms / エラーボディ（2000 文字で切り詰め）のみを記録し，ヘッダ・トークン・OAuth エンドポイントのボディは決してログにもエラー表示にも出さない．色は `--no-color` / `NO_COLOR` / 非 TTY で無効．
