@@ -99,7 +99,11 @@ impl Ui {
     }
 
     pub fn start_spinner(&self, message: &str) {
-        self.spinner.start(message, self.stderr_tty);
+        if self.stderr_tty {
+            self.spinner.start(message);
+        } else {
+            self.spinner.clear();
+        }
     }
 
     pub fn update_spinner(&self, message: &str) {

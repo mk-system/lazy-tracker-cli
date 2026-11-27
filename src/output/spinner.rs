@@ -7,13 +7,10 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 pub struct SpinnerSlot(Arc<Mutex<Option<ProgressBar>>>);
 
 impl SpinnerSlot {
-    pub fn start(&self, message: &str, animate: bool) {
+    pub fn start(&self, message: &str) {
         let mut slot = self.lock();
         if let Some(previous) = slot.take() {
             previous.finish_and_clear();
-        }
-        if !animate {
-            return;
         }
         let bar = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr());
         bar.set_style(

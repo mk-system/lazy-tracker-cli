@@ -4,7 +4,7 @@ use anstream::{AutoStream, ColorChoice};
 use serde_json::Value;
 
 pub fn print_json(value: &Value) {
-    let mut text = serde_json::to_string_pretty(value).unwrap_or_else(|_| "null".to_owned());
+    let mut text = serde_json::to_string_pretty(value).expect("serializing a Value cannot fail");
     text.push('\n');
     let mut stdout = io::stdout().lock();
     // stdout may be a closed pipe (`lt ... | head`); the write error is expected.

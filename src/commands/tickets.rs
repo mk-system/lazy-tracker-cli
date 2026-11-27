@@ -55,19 +55,17 @@ fn list(ctx: &Context, args: &TicketsListArgs) -> Result<(), CliError> {
         "Fetching tickets...",
         "Failed to fetch tickets",
         || {
-            let mut scope = Map::new();
-            let tickets = match (&resolved, args.team.as_deref()) {
-                (Some(tp), _) => {
-                    scope = scope_fields(Some(tp));
-                    endpoints::project_tickets(ctx, &tp.team, &tp.project)?
-                }
-                (None, Some(team)) => {
-                    scope.insert("team".into(), Value::String(team.to_owned()));
-                    endpoints::team_tickets(ctx, team)?
-                }
-                (None, None) => endpoints::tickets(ctx)?,
-            };
-            Ok((tickets, scope))
+            Ok(match (&resolved, args.team.as_deref()) {
+                (Some(tp), _) => (
+                    endpoints::project_tickets(ctx, &tp.team, &tp.project)?,
+                    scope_fields(Some(tp)),
+                ),
+                (None, Some(team)) => (
+                    endpoints::team_tickets(ctx, team)?,
+                    Map::from_iter([("team".to_owned(), Value::String(team.to_owned()))]),
+                ),
+                (None, None) => (endpoints::tickets(ctx)?, Map::new()),
+            })
         },
     )?;
 
