@@ -563,6 +563,24 @@ fn config_set_persists_and_config_shows_it() {
 }
 
 #[test]
+fn an_api_url_flag_is_never_written_to_the_config_file() {
+    let env = TestEnv::new("https://api.example.com");
+    env.run(&[
+        "--api-url",
+        "https://other.example.com",
+        "config:set",
+        "default-team",
+        "core",
+    ])
+    .assert_success();
+
+    let saved: Value =
+        serde_json::from_str(&fs::read_to_string(env.config_dir.join("config.json")).unwrap())
+            .unwrap();
+    assert_eq!(saved, json!({"defaultTeam": "core"}));
+}
+
+#[test]
 fn config_set_rejects_unknown_keys_and_insecure_api_urls() {
     let env = TestEnv::new("https://api.example.com");
     let out = env.run(&["config:set", "colour", "red"]);

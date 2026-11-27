@@ -32,7 +32,7 @@ pub fn show(ctx: &Context) -> Result<(), CliError> {
 const KEYS: [&str; 3] = ["api-url", "default-team", "default-project"];
 
 pub fn set(ctx: &Context, key: &str, value: &str) -> Result<(), CliError> {
-    // Re-read from disk so a `--api-url` override can never be persisted.
+    // `--api-url` applies to this run only and must never reach config.json.
     let mut settings = Settings::load(&ctx.settings_path)?;
     match key {
         "api-url" => {
