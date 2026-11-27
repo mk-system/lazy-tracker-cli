@@ -57,7 +57,7 @@ impl From<std::io::Error> for CliError {
 }
 
 pub fn format_error(err: &(dyn StdError + 'static), verbose: bool) -> String {
-    let message = err.to_string();
+    let message = style::strip_controls_keep_newlines(&err.to_string());
     if !verbose {
         return message;
     }
@@ -130,6 +130,20 @@ mod tests {
 
         assert!(formatted.contains("status: 502"));
         assert!(!formatted.contains("response:"));
+    }
+
+    #[test]
+    fn escape_sequences_in_a_server_message_do_not_reach_the_terminal() {
+        let err = CliError::Api {
+            message: "\u{1b}]0;pwned\u{7}bad id".into(),
+            status: 400,
+            body: Some("\u{1b}[2J".into()),
+        };
+
+        assert_eq!(format_error(&err, false), "?]0;pwned?bad id");
+        let verbose = format_error(&err, true);
+        assert!(!verbose.contains("\u{1b}[2J"));
+        assert!(!verbose.contains("\u{1b}]0;"));
     }
 
     #[test]

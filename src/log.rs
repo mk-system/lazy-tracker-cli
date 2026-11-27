@@ -21,10 +21,13 @@ impl Ui {
     }
 }
 
+/// Bodies come from the server, so escape sequences in them are neutralised
+/// before they reach the terminal.
 pub fn truncate_for_log(text: &str) -> String {
-    match text.char_indices().nth(MAX_LOGGED_BODY_CHARS) {
-        Some((cut, _)) => format!("{}… (truncated)", &text[..cut]),
-        None => text.to_owned(),
+    let safe = style::strip_controls_keep_newlines(text);
+    match safe.char_indices().nth(MAX_LOGGED_BODY_CHARS) {
+        Some((cut, _)) => format!("{}… (truncated)", &safe[..cut]),
+        None => safe,
     }
 }
 
@@ -88,5 +91,13 @@ mod tests {
         assert!(truncated.starts_with(&"x".repeat(2000)));
         assert!(!truncated.starts_with(&"x".repeat(2001)));
         assert!(truncated.ends_with("… (truncated)"));
+    }
+
+    #[test]
+    fn truncate_for_log_neutralises_escape_sequences_from_the_server() {
+        assert_eq!(
+            truncate_for_log("{\"message\":\"\u{1b}[2Jgone\"}"),
+            "{\"message\":\"?[2Jgone\"}"
+        );
     }
 }
