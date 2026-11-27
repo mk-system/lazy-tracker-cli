@@ -424,6 +424,28 @@ fn auth_login_stops_before_showing_a_verification_url_off_the_api_origin() {
 }
 
 #[test]
+fn auth_login_shows_the_verification_url_without_raw_control_characters() {
+    let server = MockServer::start(vec![]);
+    let verify = format!("{}/oauth/\\u001b[2Jdevice", server.url());
+    server.push(Route::new("POST", "/api/v1/oauth/device/code").json(&format!(
+        r#"{{"device_code":"dev-1","user_code":"ABCD-EFGH","verification_uri":"{verify}","expires_in":600,"interval":1}}"#
+    )));
+    server.push(
+        Route::new("POST", TOKEN_PATH)
+            .status(400)
+            .json(r#"{"error":"access_denied"}"#),
+    );
+    let env = TestEnv::new(&server.url());
+
+    let out = env.run(&["auth", "login"]);
+    assert!(!out.stderr.contains('\u{1b}'));
+    assert!(
+        out.stderr
+            .contains(&format!("{}/oauth/%1B[2Jdevice", server.url()))
+    );
+}
+
+#[test]
 fn auth_login_while_logged_in_does_nothing() {
     let server = MockServer::start(vec![]);
     let env = logged_in(&server);

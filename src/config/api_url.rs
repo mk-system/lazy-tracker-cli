@@ -24,11 +24,14 @@ pub fn validate(raw: &str) -> Result<String, String> {
 
 /// The backend serves the verification page from the API host itself, so a
 /// URL pointing anywhere else is treated as a phishing attempt.
-pub fn is_safe_to_open(raw: &str, api_url: &str) -> bool {
+///
+/// Returns the serialized URL, which percent-encodes the control characters
+/// the server may have put in it; show and open that, never `raw`.
+pub fn safe_url_to_open(raw: &str, api_url: &str) -> Option<String> {
     let (Ok(target), Ok(api)) = (Url::parse(raw), Url::parse(api_url)) else {
-        return false;
+        return None;
     };
-    validate(raw).is_ok() && target.origin() == api.origin()
+    (validate(raw).is_ok() && target.origin() == api.origin()).then(|| target.into())
 }
 
 fn is_loopback(url: &Url) -> bool {
@@ -73,20 +76,28 @@ mod tests {
     #[test]
     fn only_urls_on_the_api_origin_are_safe_to_open() {
         let api = "https://api.lazy-tracker.com";
-        assert!(is_safe_to_open(
-            "https://api.lazy-tracker.com/oauth/device?user_code=A",
-            api
-        ));
-        assert!(!is_safe_to_open("https://evil.example/oauth/device", api));
-        assert!(!is_safe_to_open(
-            "https://api.lazy-tracker.com:8443/oauth/device",
-            api
-        ));
-        assert!(!is_safe_to_open(
-            "http://api.lazy-tracker.com/oauth/device",
-            api
-        ));
-        assert!(!is_safe_to_open("file:///etc/passwd", api));
+        assert_eq!(
+            safe_url_to_open("https://api.lazy-tracker.com/oauth/device?user_code=A", api)
+                .as_deref(),
+            Some("https://api.lazy-tracker.com/oauth/device?user_code=A")
+        );
+        assert!(safe_url_to_open("https://evil.example/oauth/device", api).is_none());
+        assert!(safe_url_to_open("https://api.lazy-tracker.com:8443/oauth/device", api).is_none());
+        assert!(safe_url_to_open("http://api.lazy-tracker.com/oauth/device", api).is_none());
+        assert!(safe_url_to_open("file:///etc/passwd", api).is_none());
+    }
+
+    #[test]
+    fn a_url_safe_to_open_carries_no_raw_control_characters() {
+        let api = "https://api.lazy-tracker.com";
+        let opened = safe_url_to_open(
+            "https://api.lazy-tracker.com/oauth/\u{1b}[2Jdevice?c=\u{202E}x#\u{7}",
+            api,
+        )
+        .unwrap();
+
+        assert!(!opened.chars().any(|c| c.is_control() || !c.is_ascii()));
+        assert!(opened.starts_with("https://api.lazy-tracker.com/oauth/%1B[2Jdevice"));
     }
 
     #[test]

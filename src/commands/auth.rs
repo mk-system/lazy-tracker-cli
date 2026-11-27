@@ -43,19 +43,20 @@ fn login(ctx: &Context, force: bool) -> Result<(), CliError> {
 
     let result = (|| {
         let code = device_flow::request_device_code(ctx)?;
-        let target = code
-            .verification_uri_complete
-            .as_deref()
-            .unwrap_or(&code.verification_uri);
         let api = ctx.api_url()?;
-        for uri in [code.verification_uri.as_str(), target] {
-            if !api_url::is_safe_to_open(uri, api) {
-                return Err(CliError::Auth(format!(
+        let checked = |uri: &str| {
+            api_url::safe_url_to_open(uri, api).ok_or_else(|| {
+                CliError::Auth(format!(
                     "The server returned an unexpected verification URL: {}",
                     style::strip_controls(uri)
-                )));
-            }
-        }
+                ))
+            })
+        };
+        let shown = checked(&code.verification_uri)?;
+        let target = match &code.verification_uri_complete {
+            Some(complete) => checked(complete)?,
+            None => shown.clone(),
+        };
         ui.line("Your device code is:");
         ui.line("");
         ui.line(&format!(
@@ -64,16 +65,15 @@ fn login(ctx: &Context, force: bool) -> Result<(), CliError> {
         ));
         ui.line("");
         if ctx.no_browser {
-            ui.line(&format!("Visit: {}", code.verification_uri));
+            ui.line(&format!("Visit: {shown}"));
             ui.line("");
         } else {
             ui.line("Opening browser to authorize...");
             ui.line(&style::dim(&format!(
-                "If the browser doesn't open, visit: {}",
-                code.verification_uri
+                "If the browser doesn't open, visit: {shown}"
             )));
             ui.line("");
-            if let Err(e) = device_flow::open_browser(target, api) {
+            if let Err(e) = device_flow::open_browser(&target, api) {
                 ui.warn(&format!(
                     "Could not open a browser ({e}). Visit the URL above."
                 ));

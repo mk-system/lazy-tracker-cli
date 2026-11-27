@@ -126,9 +126,9 @@ pub fn poll_for_token(
 }
 
 pub fn open_browser(uri: &str, api_url: &str) -> Result<(), String> {
-    if !api_url::is_safe_to_open(uri, api_url) {
-        return Err(format!("refusing to open an unexpected URL: {uri}"));
-    }
+    let Some(uri) = api_url::safe_url_to_open(uri, api_url) else {
+        return Err("refusing to open an unexpected URL".to_owned());
+    };
     let opener = if cfg!(target_os = "macos") {
         "/usr/bin/open"
     } else {
