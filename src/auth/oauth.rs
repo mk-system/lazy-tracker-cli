@@ -4,6 +4,7 @@ use serde_json::Value;
 use crate::api::client::{Method, RawResponse, build_url, transmit};
 use crate::context::Context;
 use crate::error::CliError;
+use crate::output::style;
 
 /// POSTs to `/api/v1/oauth/<endpoint>` without a bearer token. Neither body
 /// is logged: requests carry device codes or refresh tokens and successful
@@ -32,23 +33,37 @@ pub struct OAuthError {
 }
 
 impl OAuthError {
+    /// Both fields are flattened to one line: they are printed in error
+    /// messages, where an embedded newline could pose as further output.
     pub fn parse(body: &str) -> Option<Self> {
-        serde_json::from_str(body).ok()
+        let parsed: Self = serde_json::from_str(body).ok()?;
+        Some(Self {
+            error: parsed.error.as_deref().map(style::one_line),
+            error_description: parsed.error_description.as_deref().map(style::one_line),
+        })
     }
 
     pub fn code(&self) -> Option<&str> {
         self.error.as_deref()
     }
 
-    /// Flattened to one line so it cannot pose as further lines of output.
     pub fn description(&self) -> Option<String> {
         self.error_description
             .as_deref()
             .filter(|d| !d.is_empty())
-            .map(one_line)
+            .map(str::to_owned)
     }
 }
 
-pub fn one_line(text: &str) -> String {
-    text.split(['\n', '\r']).collect::<Vec<_>>().join(" ")
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oauth_error_fields_are_flattened_to_one_line() {
+        let parsed =
+            OAuthError::parse(r#"{"error":"bad\n✓ ok","error_description":"x\r\ny"}"#).unwrap();
+        assert_eq!(parsed.code(), Some("bad ✓ ok"));
+        assert_eq!(parsed.description().as_deref(), Some("x  y"));
+    }
 }

@@ -156,7 +156,7 @@ fn send(
     if !response.is_success() && !response.body.is_empty() {
         ctx.ui.debug(&format!(
             "response body: {}",
-            truncate_for_log(&response.body)
+            truncate_for_log(&response.body).replace('\n', "\n    ")
         ));
     }
     Ok(response)
@@ -191,7 +191,7 @@ pub fn error_message(body: &str) -> Option<String> {
             .get(key)
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty())
-            .map(crate::auth::oauth::one_line)
+            .map(crate::output::style::one_line)
     })
 }
 

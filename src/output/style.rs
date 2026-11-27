@@ -10,6 +10,10 @@ pub fn strip_controls_keep_newlines(text: &str) -> String {
     replace_unsafe(text, |c| c == '\n')
 }
 
+pub fn one_line(text: &str) -> String {
+    text.split(['\n', '\r']).collect::<Vec<_>>().join(" ")
+}
+
 fn replace_unsafe(text: &str, keep: impl Fn(char) -> bool) -> String {
     text.chars()
         .map(|c| if is_unsafe(c) && !keep(c) { '?' } else { c })
