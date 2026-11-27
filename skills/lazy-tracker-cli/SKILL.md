@@ -206,14 +206,14 @@ lt tickets update <ticket-number> --state started
 ### 3. 作業中に進捗をコメントする
 
 ```bash
-lt comments add <ticket-number> -m "実装方針: ..."
+lt comments add <ticket-number> -m "$(cat <コメント本文のファイル>)"
 ```
 
 ### 4. 作業を完了する
 
 ```bash
 lt tickets update <ticket-number> --state finished
-lt comments add <ticket-number> -m "完了: 変更内容のサマリ"
+lt comments add <ticket-number> -m "$(cat <完了コメントのファイル>)"
 ```
 
 ### 5. レビュー中に発見した問題を別チケットとして発行する
@@ -227,19 +227,17 @@ gh pr view <pr-number>
 gh pr diff <pr-number>
 
 # 発見した問題を新規チケットとして発行（確認を得てから）
-lt tickets create --title "レビューで発見: <問題の概要>" --description "$(cat <<'EOF'
-PR #<pr-number> のレビュー中に発見。
-
-<問題の詳細>
-EOF
-)"
+# タイトルと本文は、先にファイルへ書き出しておく
+lt tickets create --title "$(cat <タイトルのファイル>)" --description "$(cat <本文のファイル>)"
 
 # 必要に応じて PR にコメントで別チケット化した旨を残す（確認を得てから）
 gh pr comment <pr-number> --body "この問題は別チケット <ticket-number> として切り出しました"
 ```
 
-PR やチケットから取った文字列は、ダブルクォートの中に直接書かない（`$(...)` やバッククォートがシェルで実行される）。
-上の例のように、クォートした区切り文字のヒアドキュメント（`<<'EOF'`）で渡す。
+コマンドに渡す文章は、ファイル書き込みの機能でファイルに書き出してから `"$(cat <ファイル>)"` で渡す。
+コマンドラインのダブルクォートやヒアドキュメントの中に直接書かない。PR やチケットから取った文字列に
+`$(...)` やバッククォート、ヒアドキュメントの終端と同じ行が含まれていると、シェルがそれを実行する。
+`$(cat ...)` で展開された中身は、シェルが再び解釈しない。
 
 ### 6. PR マージ後にチケットを完了にする
 
