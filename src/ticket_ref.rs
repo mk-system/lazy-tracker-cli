@@ -7,6 +7,7 @@ use crate::api::endpoints;
 use crate::config::project_file::{TeamProject, resolve_team_project};
 use crate::context::Context;
 use crate::error::CliError;
+use crate::output::style;
 
 pub const TEAM_PROJECT_REQUIRED: &str = "Team and project are required for ticket number lookup. Create .lazy-tracker.json or specify --team and --project options.";
 
@@ -19,8 +20,23 @@ pub fn resolve_scope(
     team: Option<&str>,
     project: Option<&str>,
 ) -> Result<TeamProject, CliError> {
-    resolve_team_project(team, project, &ctx.project_file_search(), &ctx.settings)?
-        .ok_or_else(|| CliError::usage(TEAM_PROJECT_REQUIRED))
+    let scope = resolve_team_project(team, project, &ctx.project_file_search(), &ctx.settings)?
+        .ok_or_else(|| CliError::usage(TEAM_PROJECT_REQUIRED))?;
+    announce_file_scope(ctx, &scope);
+    Ok(scope)
+}
+
+/// A project file can come with a cloned repository, so the user is told when
+/// it, rather than their own options or settings, picked the target.
+pub fn announce_file_scope(ctx: &Context, scope: &TeamProject) {
+    if let Some(path) = &scope.from_file {
+        ctx.ui.info(&style::strip_controls(&format!(
+            "Using team {} / project {} from {}",
+            scope.team,
+            scope.project,
+            path.display()
+        )));
+    }
 }
 
 pub fn scope_fields(scope: Option<&TeamProject>) -> Map<String, Value> {
@@ -85,6 +101,7 @@ mod tests {
         let scope = TeamProject {
             team: "t".into(),
             project: "p".into(),
+            from_file: None,
         };
         let keys: Vec<_> = scope_fields(Some(&scope)).keys().cloned().collect();
         assert_eq!(keys, ["team", "project"]);

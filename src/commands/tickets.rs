@@ -6,7 +6,7 @@ use crate::cli::{
 };
 use crate::commands::teams::text;
 use crate::commands::with_spinner;
-use crate::config::project_file::resolve_team_project;
+use crate::config::project_file::{TeamProject, resolve_team_project};
 use crate::context::Context;
 use crate::error::CliError;
 use crate::output::json::{print_json, print_stdout};
@@ -203,6 +203,7 @@ fn create(ctx: &Context, args: TicketsCreateArgs) -> Result<(), CliError> {
             "Team and project are required. Create .lazy-tracker.json or specify --team and --project options.",
         )
     })?;
+    ticket_ref::announce_file_scope(ctx, &scope);
 
     let ticket = with_spinner(ctx, "Creating ticket...", "Failed to create ticket", || {
         one_of(&args.ticket_type, &CREATE_TYPES, "Invalid ticket type")?;
@@ -286,14 +287,14 @@ fn build_update(args: &TicketsUpdateArgs) -> Result<Option<TicketUpdateRequest>,
     Ok(changed.then_some(request))
 }
 
-fn lookup_number(ctx: &Context, target: &TicketTarget) -> Result<Value, CliError> {
+fn lookup_number(ctx: &Context, target: &TicketTarget) -> Result<(Value, TeamProject), CliError> {
     let scope = ticket_ref::resolve_scope(ctx, target.team.as_deref(), target.project.as_deref())?;
     let ticket = with_spinner(ctx, "Looking up ticket...", "Ticket not found", || {
         endpoints::ticket_by_number(ctx, &scope.team, &scope.project, &target.ticket)
     })?;
     ctx.ui
         .succeed_spinner(&format!("Found ticket #{}", target.ticket));
-    Ok(ticket)
+    Ok((ticket, scope))
 }
 
 fn update(ctx: &Context, args: TicketsUpdateArgs) -> Result<(), CliError> {
@@ -302,7 +303,7 @@ fn update(ctx: &Context, args: TicketsUpdateArgs) -> Result<(), CliError> {
     })?;
 
     let ticket_id = if is_ticket_number(&args.target.ticket) {
-        ticket_ref::ticket_id(&lookup_number(ctx, &args.target)?)?
+        ticket_ref::ticket_id(&lookup_number(ctx, &args.target)?.0)?
     } else {
         args.target.ticket.clone()
     };
@@ -321,9 +322,13 @@ fn delete(ctx: &Context, target: &TicketTarget, force: bool) -> Result<(), CliEr
         ensure_can_confirm(ctx.stdin_tty)?;
     }
 
-    let (ticket_id, title) = if is_ticket_number(&target.ticket) {
-        let ticket = lookup_number(ctx, target)?;
-        (ticket_ref::ticket_id(&ticket)?, text(&ticket, "title"))
+    let (ticket_id, title, scope) = if is_ticket_number(&target.ticket) {
+        let (ticket, scope) = lookup_number(ctx, target)?;
+        (
+            ticket_ref::ticket_id(&ticket)?,
+            text(&ticket, "title"),
+            Some(scope),
+        )
     } else {
         // The lookup is kept for UUIDs too: the title in the confirmation
         // prompt is what lets the user catch a wrong ID.
@@ -334,7 +339,7 @@ fn delete(ctx: &Context, target: &TicketTarget, force: bool) -> Result<(), CliEr
             || endpoints::ticket(ctx, &target.ticket),
         )?;
         ctx.ui.succeed_spinner("Ticket found");
-        (target.ticket.clone(), text(&ticket, "title"))
+        (target.ticket.clone(), text(&ticket, "title"), None)
     };
 
     if !force {
@@ -343,7 +348,10 @@ fn delete(ctx: &Context, target: &TicketTarget, force: bool) -> Result<(), CliEr
         } else {
             format!(" \"{}\"", style::strip_controls(&title))
         };
-        let message = format!("Are you sure you want to delete ticket{shown}?");
+        let place = scope
+            .map(|s| style::strip_controls(&format!(" from {}/{}", s.team, s.project)))
+            .unwrap_or_default();
+        let message = format!("Are you sure you want to delete ticket{shown}{place}?");
         if !confirm(&ctx.ui, ctx.stdin_tty, &message)? {
             ctx.ui.line("Cancelled.");
             return Ok(());

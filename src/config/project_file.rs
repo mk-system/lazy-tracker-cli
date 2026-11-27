@@ -1,6 +1,7 @@
 use std::fs;
-use std::io;
-use std::path::Path;
+use std::io::{self, Read};
+use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
@@ -13,13 +14,17 @@ pub const PROJECT_FILE_NAME: &str = ".lazy-tracker.json";
 pub struct PartialProject {
     pub team: Option<String>,
     pub project: Option<String>,
+    pub path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TeamProject {
     pub team: String,
     pub project: String,
+    pub from_file: Option<PathBuf>,
 }
+
+const MAX_PROJECT_FILE_BYTES: u64 = 64 * 1024;
 
 /// Only `team` and `project` are read. The API URL is deliberately ignored so
 /// a committed file cannot redirect where the bearer token is sent.
@@ -30,16 +35,35 @@ fn read_project_file(path: &Path) -> Result<Option<PartialProject>, CliError> {
             path.display()
         ))
     };
-    let content = match fs::read_to_string(path) {
-        Ok(content) => content,
+    // Checked before opening: opening a FIFO would block until a writer shows up.
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(broken(e.to_string())),
     };
+    if !metadata.is_file() {
+        return Err(broken("not a regular file".to_owned()));
+    }
+    let mut content = String::new();
+    fs::File::open(path)
+        .and_then(|file| {
+            file.take(MAX_PROJECT_FILE_BYTES + 1)
+                .read_to_string(&mut content)
+        })
+        .map_err(|e| broken(e.to_string()))?;
+    if content.len() as u64 > MAX_PROJECT_FILE_BYTES {
+        return Err(broken("larger than 64 KiB".to_owned()));
+    }
     let parsed: Value = serde_json::from_str(&content).map_err(|e| broken(e.to_string()))?;
-    let field = |key: &str| parsed.get(key).and_then(Value::as_str).map(str::to_owned);
+    let field = |key: &str| match parsed.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.clone())),
+        Some(_) => Err(broken(format!("\"{key}\" must be a string"))),
+    };
     let found = PartialProject {
-        team: field("team"),
-        project: field("project"),
+        team: field("team")?,
+        project: field("project")?,
+        path: Some(path.to_path_buf()),
     };
     Ok((found.team.is_some() || found.project.is_some()).then_some(found))
 }
@@ -67,11 +91,27 @@ pub fn find_project_file(search: &ProjectFileSearch) -> Result<Option<PartialPro
             ))),
         };
     }
-    let boundary = search
-        .cwd
-        .ancestors()
-        .find(|dir| dir.join(".git").exists() || Some(*dir) == search.home)
-        .unwrap_or(search.cwd);
+    // A `.git` that belongs to someone other than the owner of the working
+    // directory (planted in a shared parent such as /tmp) is refused loudly:
+    // skipping it would silently move the boundary.
+    let owner = fs::metadata(search.cwd).ok().map(|m| m.uid());
+    let mut boundary = search.cwd;
+    for dir in search.cwd.ancestors() {
+        if let Ok(git) = fs::symlink_metadata(dir.join(".git")) {
+            if Some(git.uid()) != owner {
+                return Err(CliError::usage(format!(
+                    "{} belongs to another user. Pass --team and --project, or set LT_PROJECT_FILE.",
+                    dir.join(".git").display()
+                )));
+            }
+            boundary = dir;
+            break;
+        }
+        if Some(dir) == search.home {
+            boundary = dir;
+            break;
+        }
+    }
     for dir in search.cwd.ancestors() {
         if let Some(found) = read_project_file(&dir.join(PROJECT_FILE_NAME))? {
             return Ok(Some(found));
@@ -91,11 +131,14 @@ pub fn resolve_team_project(
 ) -> Result<Option<TeamProject>, CliError> {
     let file = find_project_file(search)?.unwrap_or_default();
     let pick = |cli: Option<&str>, file: Option<&String>, global: Option<&String>| {
-        [cli, file.map(String::as_str), global.map(String::as_str)]
-            .into_iter()
-            .flatten()
-            .find(|v| !v.is_empty())
-            .map(str::to_owned)
+        [
+            (cli, false),
+            (file.map(String::as_str), true),
+            (global.map(String::as_str), false),
+        ]
+        .into_iter()
+        .find_map(|(value, from_file)| value.filter(|v| !v.is_empty()).map(|v| (v, from_file)))
+        .map(|(value, from_file)| (value.to_owned(), from_file))
     };
     let team = pick(team, file.team.as_ref(), settings.default_team.as_ref());
     let project = pick(
@@ -105,7 +148,15 @@ pub fn resolve_team_project(
     );
     Ok(team
         .zip(project)
-        .map(|(team, project)| TeamProject { team, project }))
+        .map(
+            |((team, team_from_file), (project, project_from_file))| TeamProject {
+                team,
+                project,
+                from_file: (team_from_file || project_from_file)
+                    .then(|| file.path.clone())
+                    .flatten(),
+            },
+        ))
 }
 
 #[cfg(test)]
@@ -225,6 +276,70 @@ mod tests {
         let message = err.to_string();
         assert!(message.contains(PROJECT_FILE_NAME));
         assert!(message.contains("Fix or remove the file"));
+    }
+
+    #[test]
+    fn the_repository_boundary_does_not_depend_on_who_owns_home() {
+        let root = tempfile::tempdir().unwrap();
+        let repo = repo(root.path());
+        let sub = repo.join("sub");
+        fs::create_dir_all(&sub).unwrap();
+        write(&repo, r#"{"team":"t","project":"p"}"#);
+
+        let search = ProjectFileSearch {
+            cwd: &sub,
+            home: Some(Path::new("/")),
+            explicit: None,
+        };
+        let found = find_project_file(&search).unwrap().unwrap();
+        assert_eq!(found.team.as_deref(), Some("t"));
+    }
+
+    #[test]
+    fn a_non_string_team_or_project_is_an_error_instead_of_being_ignored() {
+        let root = tempfile::tempdir().unwrap();
+        let repo = repo(root.path());
+        write(&repo, r#"{"team":123,"project":"p"}"#);
+
+        let err = find_project_file(&search(&repo)).unwrap_err();
+        assert!(err.to_string().contains("\"team\" must be a string"));
+    }
+
+    #[test]
+    fn a_project_file_that_is_not_a_regular_file_is_refused_without_reading_it() {
+        let root = tempfile::tempdir().unwrap();
+        let repo = repo(root.path());
+        fs::create_dir(repo.join(PROJECT_FILE_NAME)).unwrap();
+
+        let err = find_project_file(&search(&repo)).unwrap_err();
+        assert!(err.to_string().contains("not a regular file"));
+    }
+
+    #[test]
+    fn an_oversized_project_file_is_refused() {
+        let root = tempfile::tempdir().unwrap();
+        let repo = repo(root.path());
+        write(&repo, &format!(r#"{{"team":"{}"}}"#, "x".repeat(70_000)));
+
+        let err = find_project_file(&search(&repo)).unwrap_err();
+        assert!(err.to_string().contains("larger than 64 KiB"));
+    }
+
+    #[test]
+    fn the_resolved_scope_names_the_project_file_it_came_from() {
+        let root = tempfile::tempdir().unwrap();
+        let repo = repo(root.path());
+        write(&repo, r#"{"team":"t","project":"p"}"#);
+        let settings = Settings::default();
+
+        let from_file = resolve_team_project(None, None, &search(&repo), &settings)
+            .unwrap()
+            .unwrap();
+        let from_cli = resolve_team_project(Some("t"), Some("p"), &search(&repo), &settings)
+            .unwrap()
+            .unwrap();
+        assert_eq!(from_file.from_file, Some(repo.join(PROJECT_FILE_NAME)));
+        assert_eq!(from_cli.from_file, None);
     }
 
     #[test]

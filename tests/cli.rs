@@ -95,6 +95,40 @@ fn project_file_supplies_team_and_project() {
 }
 
 #[test]
+fn a_write_by_ticket_number_says_which_project_file_chose_the_target() {
+    let server = MockServer::start(vec![
+        Route::new("GET", "/api/v1/teams/core/projects/web/tickets/by-number/7")
+            .json(r#"{"id":"t-7"}"#),
+        Route::new("PUT", "/api/v1/tickets/t-7").json(r#"{"id":"t-7"}"#),
+    ]);
+    let env = logged_in(&server);
+    fs::write(
+        env.work.join(".lazy-tracker.json"),
+        r#"{"team":"core","project":"web"}"#,
+    )
+    .unwrap();
+
+    let out = env.run(&["tickets", "update", "7", "--state", "started"]);
+    out.assert_success();
+    assert!(out.stderr.contains("Using team core / project web from "));
+    assert!(out.stderr.contains("/work/.lazy-tracker.json"));
+
+    let explicit = env.run(&[
+        "tickets",
+        "update",
+        "7",
+        "--state",
+        "started",
+        "--team",
+        "core",
+        "--project",
+        "web",
+    ]);
+    explicit.assert_success();
+    assert!(!explicit.stderr.contains("Using team"));
+}
+
+#[test]
 fn tickets_list_table_renders_columns_instead_of_json() {
     let server = MockServer::start(vec![
         Route::new("GET", "/api/v1/tickets").json(TICKETS_BODY),
