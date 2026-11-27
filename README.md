@@ -79,7 +79,7 @@ lt auth login
 | macOS | Keychain（service `lazy-tracker-cli`、account `tokens`）                   |
 | Linux | Secret Service（GNOME Keyring / KWallet など）。同じ service / account 名 |
 
-Linux で Secret Service が動いていない環境（サーバー、コンテナ、CI など）では `lt auth login` がエラーで止まる。その場合、環境変数 `LT_INSECURE_TOKEN_FILE=1` を設定すると、トークンを設定ディレクトリの `tokens.json` に**平文で**（パーミッション 0600）保存する。この変数は macOS でも有効で、設定すると Keychain の代わりにファイルを使う。平文保存では共有マシンでのアカウント保護に注意すること。ログアウト (`lt auth logout`) でトークンは削除される。
+Linux で Secret Service が動いていない環境（サーバー、コンテナ、CI など）では `lt auth login` がエラーで止まる。その場合、環境変数 `LT_INSECURE_TOKEN_FILE=1` を設定すると、トークンを設定ディレクトリの `tokens.json` に**平文で**（パーミッション 0600）保存する。他のユーザーが読み書きできる状態の `tokens.json` は読まずにエラーにする。この変数は macOS でも有効で、設定すると Keychain の代わりにファイルを使う。平文保存では共有マシンでのアカウント保護に注意すること。ログアウト (`lt auth logout`) でトークンは削除される。
 
 `lt auth status` で現在の保存先を確認できる。
 
@@ -307,7 +307,7 @@ lt --verbose comments list <ticket-id>
 
 API URL の解決順は `--api-url` > `lt config:set api-url` > `LT_API_URL` > 既定値。どの経路でも `https://` のみ受け付ける（ローカル開発用に `localhost` / `127.0.0.1` / `::1` だけは `http://` も可）。
 
-ログイン中のトークンは、発行した API と同じ origin にしか送らない。別の API URL を指定するとエラーになり、保存済みのトークンはそのまま残る。その API を使うなら `lt auth login --force` でログインし直す（保存済みのログインは置き換わる）。
+ログイン中のトークンは、発行した API と同じ origin にしか送らない。別の API URL を指定するとエラーになり、保存済みのトークンはそのまま残る。その API を使うなら `lt auth login --force` でログインし直す（保存済みのログインは置き換わる）。v0.1.x から引き継いだログインは発行元を記録していないため、既定の API と `lt config:set api-url` で設定した API にだけ送る。
 
 ### `--verbose` について
 
