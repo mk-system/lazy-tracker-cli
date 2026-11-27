@@ -25,40 +25,55 @@ fn get(ctx: &Context, segments: &[&str]) -> Result<Value, CliError> {
     request::<()>(ctx, Method::Get, segments, None)
 }
 
-/// List endpoints answer with a JSON array; anything else is treated as empty.
-fn list(value: Value) -> Vec<Value> {
+/// `Null` stands for an empty or non-JSON body, which has always meant "no
+/// items"; any other JSON value means the response is not what we expect.
+fn list(value: Value) -> Result<Vec<Value>, CliError> {
     match value {
-        Value::Array(items) => items,
-        _ => Vec::new(),
+        Value::Array(items) => Ok(items),
+        Value::Null => Ok(Vec::new()),
+        other => Err(CliError::usage(format!(
+            "Unexpected response from the server: expected a list, got {}",
+            json_kind(&other)
+        ))),
+    }
+}
+
+fn json_kind(value: &Value) -> &'static str {
+    match value {
+        Value::Object(_) => "an object",
+        Value::String(_) => "a string",
+        Value::Number(_) => "a number",
+        Value::Bool(_) => "a boolean",
+        Value::Array(_) | Value::Null => "a list",
     }
 }
 
 pub fn my_teams(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["teams", "my"]).map(list)
+    get(ctx, &["teams", "my"]).and_then(list)
 }
 
 pub fn projects(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["projects"]).map(list)
+    get(ctx, &["projects"]).and_then(list)
 }
 
 pub fn recent_projects(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["projects", "recent"]).map(list)
+    get(ctx, &["projects", "recent"]).and_then(list)
 }
 
 pub fn team_projects(ctx: &Context, team: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["projects", "team", team]).map(list)
+    get(ctx, &["projects", "team", team]).and_then(list)
 }
 
 pub fn tickets(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["tickets"]).map(list)
+    get(ctx, &["tickets"]).and_then(list)
 }
 
 pub fn team_tickets(ctx: &Context, team: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["teams", team, "tickets"]).map(list)
+    get(ctx, &["teams", team, "tickets"]).and_then(list)
 }
 
 pub fn project_tickets(ctx: &Context, team: &str, project: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["teams", team, "projects", project, "tickets"]).map(list)
+    get(ctx, &["teams", team, "projects", project, "tickets"]).and_then(list)
 }
 
 pub fn ticket(ctx: &Context, ticket_id: &str) -> Result<Value, CliError> {
@@ -148,7 +163,7 @@ pub fn delete_ticket(ctx: &Context, ticket_id: &str) -> Result<(), CliError> {
 }
 
 pub fn chats(ctx: &Context, ticket_id: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["tickets", ticket_id, "chats"]).map(list)
+    get(ctx, &["tickets", ticket_id, "chats"]).and_then(list)
 }
 
 pub fn create_chat(ctx: &Context, ticket_id: &str, message: &str) -> Result<Value, CliError> {
@@ -176,6 +191,15 @@ pub fn delete_chat(ctx: &Context, chat_id: &str) -> Result<(), CliError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a_list_endpoint_answering_with_a_non_list_is_an_error() {
+        assert_eq!(list(json!([1])).unwrap(), vec![json!(1)]);
+        assert!(list(Value::Null).unwrap().is_empty());
+        let err = list(json!({"message": "maintenance"})).unwrap_err();
+        assert!(err.to_string().contains("expected a list, got an object"));
+    }
 
     #[test]
     fn update_request_omits_unset_fields_and_sends_null_for_cleared_ones() {

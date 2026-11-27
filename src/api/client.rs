@@ -47,8 +47,10 @@ impl RawResponse {
 
 pub fn build_url(base: &str, segments: &[&str]) -> Result<String, CliError> {
     let invalid = || CliError::usage(format!("Invalid API URL: {base}"));
-    if let Some(segment) = segments.iter().find(|s| matches!(**s, "." | "..")) {
-        return Err(CliError::usage(format!("Invalid identifier: {segment}")));
+    if let Some(segment) = segments.iter().find(|s| matches!(**s, "" | "." | "..")) {
+        return Err(CliError::usage(format!(
+            "Invalid identifier: \"{segment}\""
+        )));
     }
     let mut url = Url::parse(base).map_err(|_| invalid())?;
     url.path_segments_mut()
@@ -362,8 +364,8 @@ mod tests {
     }
 
     #[test]
-    fn dot_segments_are_rejected_instead_of_silently_dropped() {
-        for segment in [".", ".."] {
+    fn empty_and_dot_segments_are_rejected_instead_of_changing_the_path() {
+        for segment in ["", ".", ".."] {
             let err = build_url(
                 "https://api.example.com",
                 &["api", "v1", "tickets", segment],
