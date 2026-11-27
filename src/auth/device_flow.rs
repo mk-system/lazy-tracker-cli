@@ -16,6 +16,8 @@ use crate::error::CliError;
 
 const DEFAULT_INTERVAL_SECS: u64 = 5;
 const SLOW_DOWN_STEP_SECS: u64 = 5;
+/// Keeps a bogus interval from the server from stalling the login.
+const MAX_INTERVAL_SECS: u64 = 60;
 
 #[derive(Debug, Deserialize)]
 pub struct DeviceCode {
@@ -34,7 +36,8 @@ impl DeviceCode {
         Duration::from_secs(
             self.interval
                 .filter(|i| *i > 0)
-                .unwrap_or(DEFAULT_INTERVAL_SECS),
+                .unwrap_or(DEFAULT_INTERVAL_SECS)
+                .min(MAX_INTERVAL_SECS),
         )
     }
 }
@@ -113,7 +116,8 @@ pub fn poll_for_token(
         match error.code() {
             Some("authorization_pending") => sleep(interval),
             Some("slow_down") => {
-                interval += Duration::from_secs(SLOW_DOWN_STEP_SECS);
+                interval = (interval + Duration::from_secs(SLOW_DOWN_STEP_SECS))
+                    .min(Duration::from_secs(MAX_INTERVAL_SECS));
                 sleep(interval);
             }
             Some("access_denied") => {
@@ -248,6 +252,27 @@ mod tests {
         let err = poll_for_token(&ctx, &forever, &mut |_| {}).unwrap_err();
         assert!(err.to_string().contains("device code lifetime"));
         assert!(server.requests().is_empty());
+    }
+
+    #[test]
+    fn an_absurd_interval_from_the_server_is_capped() {
+        let huge = DeviceCode {
+            interval: Some(u64::MAX),
+            ..code(None)
+        };
+        assert_eq!(huge.interval(), Duration::from_secs(MAX_INTERVAL_SECS));
+
+        let (_, sleeps) = poll(
+            vec![
+                Route::new("POST", TOKEN_PATH)
+                    .status(400)
+                    .json(r#"{"error":"slow_down"}"#)
+                    .times(1),
+                Route::new("POST", TOKEN_PATH).json(ISSUED),
+            ],
+            Some(MAX_INTERVAL_SECS),
+        );
+        assert_eq!(sleeps, [Duration::from_secs(MAX_INTERVAL_SECS)]);
     }
 
     #[test]
