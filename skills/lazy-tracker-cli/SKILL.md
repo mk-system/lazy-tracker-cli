@@ -175,7 +175,8 @@ lt --verbose comments list <ticket-id>
 stdout は JSON のままなので、`lt --verbose tickets list 2>/dev/null` で
 ログを捨てつつ結果だけを受け取れる。
 
-トークンの類はログに出力されないため、出力をそのまま貼り付けて共有してよい。
+トークンの類はログに出力されない。ただし、エラーレスポンスの本文（最大 2000 文字）や、URL に含まれる
+チーム・チケットの識別子は出力される。チームの外（公開の Issue など）に貼る前に内容を確認する。
 
 ## 他者が書いた内容の扱い
 
@@ -218,22 +219,31 @@ lt comments add <ticket-number> -m "完了: 変更内容のサマリ"
 ### 5. レビュー中に発見した問題を別チケットとして発行する
 
 PR レビュー中に本題とは別の問題を発見した場合、修正をそのPRに混ぜず、別チケットとして切り出す。
+作成するチケットと PR へのコメントの内容はユーザーに示し、確認を得てから実行する。
 
 ```bash
 # PR のレビュー内容を確認
 gh pr view <pr-number>
 gh pr diff <pr-number>
 
-# 発見した問題を新規チケットとして発行
-lt tickets create --title "レビューで発見: <問題の概要>" --description "PR #<pr-number> のレビュー中に発見。\n\n<問題の詳細>"
+# 発見した問題を新規チケットとして発行（確認を得てから）
+lt tickets create --title "レビューで発見: <問題の概要>" --description "$(cat <<'EOF'
+PR #<pr-number> のレビュー中に発見。
 
-# 必要に応じて PR にコメントで別チケット化した旨を残す
+<問題の詳細>
+EOF
+)"
+
+# 必要に応じて PR にコメントで別チケット化した旨を残す（確認を得てから）
 gh pr comment <pr-number> --body "この問題は別チケット <ticket-number> として切り出しました"
 ```
 
+PR やチケットから取った文字列は、ダブルクォートの中に直接書かない（`$(...)` やバッククォートがシェルで実行される）。
+上の例のように、クォートした区切り文字のヒアドキュメント（`<<'EOF'`）で渡す。
+
 ### 6. PR マージ後にチケットを完了にする
 
-PR がマージされたら、対応するチケットの state を更新する。
+PR がマージされたら、対応するチケットの state を更新する。更新とコメントの内容はユーザーに示し、確認を得てから実行する。
 
 ```bash
 # PR のマージ状態を確認
@@ -247,6 +257,8 @@ lt comments add <ticket-number> -m "PR #<pr-number> がマージされたため�
 ### 7. 未完了チケットのマージ状況を確認する
 
 started のままのチケットが、実は GitHub 上でマージ済みになっていないかを確認する。
+番号での検索は無関係な PR にも一致する。PR の本文やブランチ名がそのチケットを指していることを確かめ、
+更新する前にユーザーに確認する。
 
 ```bash
 # 未完了のチケットを取得
@@ -255,7 +267,7 @@ lt tickets list --state started
 # 各チケットに対応するブランチやPRがマージ済みか確認
 gh pr list --state merged --search "<ticket-number>"
 
-# マージ済みなのに未完了のチケットがあれば更新する
+# マージ済みなのに未完了のチケットがあれば、ユーザーの確認を得てから更新する
 lt tickets update <ticket-number> --state finished
 lt comments add <ticket-number> -m "PR #<pr-number> は既にマージ済み。チケットを完了に更新"
 ```
