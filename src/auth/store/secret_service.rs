@@ -24,8 +24,6 @@ impl SecretServiceStore {
         }
     }
 
-    /// Runs `op` on a worker thread so a hung D-Bus call becomes an error
-    /// instead of a frozen CLI. The thread is abandoned on timeout.
     fn with_entry<T: Send + 'static>(
         &self,
         op: impl FnOnce(&Entry) -> Result<T, KeyringError> + Send + 'static,

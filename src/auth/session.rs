@@ -22,7 +22,6 @@ fn not_authenticated() -> CliError {
     CliError::Auth(NOT_AUTHENTICATED.to_owned())
 }
 
-/// Tokens with a usable access token, refreshing first if it has expired.
 /// A store that cannot be read is reported as such, never as "logged out".
 pub fn credentials(ctx: &Context) -> Result<TokenData, CliError> {
     let tokens = ctx.store.load()?.ok_or_else(not_authenticated)?;
@@ -33,9 +32,7 @@ pub fn credentials(ctx: &Context) -> Result<TokenData, CliError> {
     refresh(ctx, &tokens.refresh_token, Trigger::Expired)
 }
 
-/// Refreshes under the auth lock. `stale` is the refresh token the caller
-/// saw; if another process already replaced it while we waited for the lock,
-/// its result is reused instead of spending a rotated token a second time.
+/// `stale` is the refresh token the caller saw before taking the lock.
 pub fn refresh(ctx: &Context, stale: &str, trigger: Trigger) -> Result<TokenData, CliError> {
     let _lock = AuthLock::acquire(&ctx.config_dir)?;
     let current = ctx.store.load()?.ok_or_else(not_authenticated)?;

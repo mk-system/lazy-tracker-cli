@@ -57,8 +57,6 @@ pub enum Source {
     Default,
 }
 
-/// `--api-url` > `config.json` > `LT_API_URL` > default. The winner is
-/// validated whichever source it came from.
 pub fn resolve(
     flag: Option<&str>,
     settings: Option<&str>,

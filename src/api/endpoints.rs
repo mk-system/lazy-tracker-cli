@@ -115,8 +115,6 @@ pub struct TicketCreateRequest {
     pub release_date: Option<String>,
 }
 
-/// `None` leaves a field out of the request; `Some(None)` sends `null` to
-/// clear it on the server.
 #[derive(Debug, Default, Serialize)]
 pub struct TicketUpdateRequest {
     #[serde(skip_serializing_if = "Option::is_none")]

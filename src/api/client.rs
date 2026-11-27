@@ -122,9 +122,8 @@ fn send_body(
     }
 }
 
-/// Calls an authenticated API endpoint. On a 401 the session is refreshed
-/// once and the request replayed once; a second 401 is reported but the saved
-/// tokens are left alone, since only the token endpoint can prove them dead.
+/// A 401 only says the access token was refused; whether the refresh token
+/// is dead is known only from the token endpoint.
 pub fn call(
     ctx: &Context,
     method: Method,

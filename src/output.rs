@@ -26,9 +26,8 @@ pub struct Ui {
 }
 
 impl Ui {
-    /// `no_color` comes from `--no-color` or `NO_COLOR`. stderr's choice is
-    /// settled here because the boxed sink hides the terminal from anstream,
-    /// whose `Auto` would then always strip styles.
+    /// anstream cannot see the terminal behind the boxed sink, so its `Auto`
+    /// would always strip styles.
     pub fn new(verbose: bool, no_color: bool, stderr_tty: bool) -> Self {
         let (stdout_color, stderr_color) = match (no_color, stderr_tty) {
             (true, _) => (ColorChoice::Never, ColorChoice::Never),

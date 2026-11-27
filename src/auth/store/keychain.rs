@@ -7,12 +7,11 @@ use crate::auth::store::{ACCOUNT_NAME, TokenStore, parse_stored, serialize};
 use crate::auth::token::TokenData;
 use crate::error::StoreError;
 
-// Security.framework is not called directly: the existing item's ACL trusts
-// /usr/bin/security, and our ad-hoc signed binary changes identity on every
-// release, so reading it in-process would raise an access prompt after each
-// upgrade and fail outright in non-interactive sessions.
+// The item's ACL trusts /usr/bin/security. An ad-hoc signed binary changes
+// identity on every release, so reading in-process would prompt for access
+// after each upgrade and fail outright in non-interactive sessions.
 const SECURITY: &str = "/usr/bin/security";
-// Long enough for the user to answer a Keychain unlock dialog.
+// security can block on a Keychain unlock dialog.
 const TIMEOUT: Duration = Duration::from_secs(30);
 const ITEM_NOT_FOUND: i32 = 44;
 // `security -i` reads commands with a 4096-byte line buffer and silently
@@ -94,8 +93,8 @@ fn run_security(args: &[String], stdin: Option<&str>) -> Result<Outcome, String>
     let stderr_reader = thread::spawn(move || read_all(stderr_pipe.as_mut()));
 
     let started = Instant::now();
-    // A normal call finishes in ~20ms, so start with short sleeps and back
-    // off towards the cap only while waiting on an unlock dialog.
+    // A normal security call finishes in ~20ms; only an unlock dialog makes it
+    // wait long.
     let mut pause = Duration::from_millis(1);
     let status = loop {
         match child.try_wait() {

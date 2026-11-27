@@ -71,8 +71,6 @@ fn read_project_file(path: &Path) -> Result<Option<PartialProject>, CliError> {
 pub struct ProjectFileSearch<'a> {
     pub cwd: &'a Path,
     pub home: Option<&'a Path>,
-    /// `LT_PROJECT_FILE`: a file outside the repository (e.g. one shared by
-    /// several repositories) is only read when named explicitly.
     pub explicit: Option<&'a Path>,
 }
 

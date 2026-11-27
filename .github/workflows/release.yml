@@ -116,8 +116,7 @@ jobs:
           cp "target/${TARGET}/release/lt" "dist/${ARTIFACT}"
 
       # The linker signs arm64 ad hoc but leaves x86_64 unsigned, and an
-      # invalid signature gets the binary SIGKILLed on Apple Silicon. Signing
-      # both unconditionally keeps the check below meaningful for each.
+      # invalid signature gets the binary SIGKILLed on Apple Silicon.
       - name: Sign ad-hoc and verify
         if: runner.os == 'macOS'
         env:
@@ -177,8 +176,7 @@ jobs:
         working-directory: dist
         run: shasum -a 256 lt-* > SHA256SUMS
 
-      # A tag with a pre-release suffix (v0.2.0-rc.1) must not become
-      # "Latest": README links to releases/latest/download/... for everyone.
+      # README links to releases/latest/download/... for every install.
       - name: Create GitHub Release
         working-directory: dist
         run: |

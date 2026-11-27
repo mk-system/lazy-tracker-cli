@@ -1,8 +1,6 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-/// Lexically resolves `.` and `..` like Node's `path.resolve`, without
-/// touching the filesystem.
 pub fn normalize(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {

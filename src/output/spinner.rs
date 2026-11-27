@@ -7,8 +7,6 @@ use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 pub struct SpinnerSlot(Arc<Mutex<Option<ProgressBar>>>);
 
 impl SpinnerSlot {
-    /// Animates only on a terminal; elsewhere the completion line printed by
-    /// the caller is the only trace, so piped stderr stays line-oriented.
     pub fn start(&self, message: &str, animate: bool) {
         let mut slot = self.lock();
         if let Some(previous) = slot.take() {

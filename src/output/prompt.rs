@@ -14,8 +14,6 @@ pub fn ask(ui: &Ui, prompt: &str) -> Result<Option<String>, CliError> {
     Ok(Some(answer.trim().to_owned()))
 }
 
-/// Asks a y/N question. Without a terminal on stdin there is nobody to answer,
-/// so the caller is told to pass `--force` instead of reading a stray line.
 pub fn confirm(ui: &Ui, stdin_tty: bool, message: &str) -> Result<bool, CliError> {
     ensure_can_confirm(stdin_tty)?;
     let answer = ask(ui, &format!("{message} (y/N): "))?.unwrap_or_default();

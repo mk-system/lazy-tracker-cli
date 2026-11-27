@@ -15,8 +15,6 @@ pub fn camelize_keys(value: Value) -> Value {
     }
 }
 
-/// `[-_\s]+(.)?` becomes the next character upper-cased, then the first
-/// character is lower-cased. Keys that read as numbers are left alone.
 pub fn camelize(key: &str) -> String {
     if is_numerical(key) {
         return key.to_owned();
