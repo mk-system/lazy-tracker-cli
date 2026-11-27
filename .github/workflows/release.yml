@@ -161,6 +161,8 @@ jobs:
     runs-on: *linux_x64
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -175,6 +177,11 @@ jobs:
       - name: Generate checksums
         working-directory: dist
         run: shasum -a 256 lt-* > SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/lt-*
 
       # README links to releases/latest/download/... for every install.
       - name: Create GitHub Release

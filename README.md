@@ -43,6 +43,12 @@ shasum -a 256 -c SHA256SUMS --ignore-missing
 
 `--ignore-missing` で、ダウンロードしていない他プラットフォームのバイナリを無視する。上の手順で `lt` にリネームした場合は、リネーム前のファイル名で検証すること。
 
+各バイナリには GitHub Actions でビルドしたことを示す来歴証明（build provenance attestation）も付いている。GitHub CLI で検証できる:
+
+```bash
+gh attestation verify lt-macos-arm64 --repo mk-system/lazy-tracker-cli
+```
+
 ### ソースからビルド
 
 Rust のツールチェーン（[rustup](https://rustup.rs/)）が必要。バージョンは `rust-toolchain.toml` で固定されており、rustup が自動で導入する。

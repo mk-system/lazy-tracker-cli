@@ -58,7 +58,7 @@ CI（`.github/workflows/ci.yaml`）は ubuntu / macOS で fmt → clippy → tes
 
 ## リリース
 
-`Cargo.toml` の version を上げた PR をマージ → main 上のそのコミットに `v<version>` タグを push すると `.github/workflows/release.yml` が動く．タグと version の不一致，main の祖先でないコミットへのタグは失敗する．fmt / clippy / test を通ってからビルドする．Linux は musl 静的リンク，macOS は両アーキテクチャとも ad-hoc 再署名して `codesign --verify` する（未署名・不正署名の arm64 バイナリは Apple Silicon で SIGKILL される）．成果物は `lt-macos-arm64` / `lt-macos-x64` / `lt-linux-x64` / `lt-linux-arm64` / `SHA256SUMS`．タグ名に `-` を含む（`v0.2.0-rc.1` など）と pre-release になり Latest を奪わない．
+`Cargo.toml` の version を上げた PR をマージ → main 上のそのコミットに `v<version>` タグを push すると `.github/workflows/release.yml` が動く．タグと version の不一致，main の祖先でないコミットへのタグは失敗する．fmt / clippy / test を通ってからビルドする．Linux は musl 静的リンク，macOS は両アーキテクチャとも ad-hoc 再署名して `codesign --verify` する（未署名・不正署名の arm64 バイナリは Apple Silicon で SIGKILL される）．成果物は `lt-macos-arm64` / `lt-macos-x64` / `lt-linux-x64` / `lt-linux-arm64` / `SHA256SUMS` で，各バイナリに `actions/attest-build-provenance` の来歴証明を付ける（`gh attestation verify` で検証できる）．タグ名に `-` を含む（`v0.2.0-rc.1` など）と pre-release になり Latest を奪わない．
 
 workflow の action はコミット SHA で固定し，行末に `# vX.Y.Z` を書く．ランナーラベルは YAML アンカーで workflow ごとに 1 か所にまとめてある（GHEC 移行時の書き換え用 TODO 付き）．古い actionlint（1.7.7 で確認）はアンカーを解釈できない（1.7.12 は可）．
 
