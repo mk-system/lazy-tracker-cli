@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 
 pub fn normalize(path: &Path) -> PathBuf {
@@ -19,13 +20,20 @@ pub fn normalize(path: &Path) -> PathBuf {
 /// only for the two layouts git itself writes (worktrees and submodules): an
 /// arbitrary `gitdir:` pointer could otherwise steer skill installs and
 /// removals to a directory outside the repository.
+///
+/// A `.git` that is a symlink, or that belongs to someone other than the
+/// owner of `start` (one planted in a shared /tmp, say), is not a root.
 pub fn find_git_root(start: &Path) -> Option<PathBuf> {
-    start.ancestors().find_map(git_root_at)
+    let owner = fs::metadata(start).ok()?.uid();
+    start.ancestors().find_map(|dir| git_root_at(dir, owner))
 }
 
-fn git_root_at(dir: &Path) -> Option<PathBuf> {
+fn git_root_at(dir: &Path, owner: u32) -> Option<PathBuf> {
     let git_path = dir.join(".git");
-    let meta = fs::metadata(&git_path).ok()?;
+    let meta = fs::symlink_metadata(&git_path).ok()?;
+    if meta.uid() != owner {
+        return None;
+    }
     if meta.is_dir() {
         return Some(dir.to_path_buf());
     }
@@ -191,6 +199,16 @@ mod tests {
         .unwrap();
 
         assert_eq!(find_git_root(&root.join("wt")), None);
+    }
+
+    #[test]
+    fn a_symlinked_git_entry_is_not_followed() {
+        let (_guard, root) = tmp();
+        fs::create_dir_all(root.join("real/.git")).unwrap();
+        fs::create_dir_all(root.join("unpacked")).unwrap();
+        std::os::unix::fs::symlink(root.join("real/.git"), root.join("unpacked/.git")).unwrap();
+
+        assert_eq!(find_git_root(&root.join("unpacked")), None);
     }
 
     #[test]
