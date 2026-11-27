@@ -457,6 +457,31 @@ fn auth_login_while_logged_in_does_nothing() {
 }
 
 #[test]
+fn tokens_from_another_api_are_not_sent_to_the_api_url_given_on_the_command_line() {
+    let server = MockServer::start(vec![Route::new("POST", "/api/v1/oauth/revoke").json("{}")]);
+    let env = logged_in(&server);
+    let mut tokens = env.tokens().unwrap();
+    tokens["apiOrigin"] = "https://api.lazy-tracker.com".into();
+    fs::write(env.tokens_path(), tokens.to_string()).unwrap();
+
+    let list = env.run(&["tickets", "list", "--team", "t", "--project", "p"]);
+    let logout = env.run(&["auth", "logout", "--revoke"]);
+    let login = env.run(&["auth", "login"]);
+
+    assert_eq!(login.code, Some(1));
+    assert!(login.stderr.contains("lt auth login --force"));
+    assert!(!login.stderr.contains("Already authenticated"));
+    assert_eq!(list.code, Some(1));
+    assert!(
+        list.stderr
+            .contains("logged in to https://api.lazy-tracker.com")
+    );
+    assert_eq!(logout.code, Some(1));
+    assert!(server.requests().is_empty());
+    assert_eq!(env.tokens().unwrap(), tokens);
+}
+
+#[test]
 fn auth_logout_revoke_sends_only_the_access_token_and_clears_tokens() {
     let server = MockServer::start(vec![Route::new("POST", "/api/v1/oauth/revoke").json("{}")]);
     let env = logged_in(&server);

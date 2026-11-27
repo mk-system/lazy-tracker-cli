@@ -34,6 +34,12 @@ pub fn safe_url_to_open(raw: &str, api_url: &str) -> Option<String> {
     (validate(raw).is_ok() && target.origin() == api.origin()).then(|| target.into())
 }
 
+pub fn origin_of(url: &str) -> Option<String> {
+    Url::parse(url)
+        .ok()
+        .map(|u| u.origin().ascii_serialization())
+}
+
 fn is_loopback(url: &Url) -> bool {
     match url.host() {
         Some(Host::Domain(domain)) => domain.eq_ignore_ascii_case("localhost"),

@@ -103,8 +103,9 @@ fn logout(ctx: &Context, revoke: bool) -> Result<(), CliError> {
     let mut revoked = true;
     let logged_in = session::logout(ctx, |tokens| {
         if !revoke {
-            return;
+            return Ok(());
         }
+        session::ensure_issued_here(ctx, tokens)?;
         ctx.ui.start_spinner("Revoking token...");
         // Only the access token is sent: the backend revokes the refresh token
         // paired with it in the same call (`OAuthService.revokeToken`).
@@ -117,6 +118,7 @@ fn logout(ctx: &Context, revoke: bool) -> Result<(), CliError> {
                     .fail_spinner("Failed to revoke token (clearing local credentials anyway)");
             }
         }
+        Ok(())
     })?;
 
     if !logged_in {

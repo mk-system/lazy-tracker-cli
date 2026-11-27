@@ -17,6 +17,10 @@ pub struct TokenData {
     pub refresh_token_expires_at: Option<u64>,
     #[serde(default)]
     pub scope: String,
+    /// Origin of the API that issued the tokens. Absent in tokens saved before
+    /// this field existed, which are then accepted for any API URL.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_origin: Option<String>,
 }
 
 impl TokenData {
@@ -44,21 +48,32 @@ pub struct TokenResponse {
 impl TokenResponse {
     /// A server that does not rotate refresh tokens omits `refresh_token`;
     /// the one used for the request then stays valid.
-    pub fn into_token_data(self, now_ms: u64, previous_refresh: Option<&str>) -> TokenData {
-        TokenData {
+    pub fn into_token_data(
+        self,
+        now_ms: u64,
+        previous_refresh: Option<&str>,
+        api_origin: Option<String>,
+    ) -> Option<TokenData> {
+        let refresh_token = self
+            .refresh_token
+            .filter(|t| !t.is_empty())
+            .or_else(|| previous_refresh.map(str::to_owned))?;
+        Some(TokenData {
             access_token: self.access_token,
-            refresh_token: self
-                .refresh_token
-                .or_else(|| previous_refresh.map(str::to_owned))
-                .unwrap_or_default(),
-            expires_at: now_ms + self.expires_in * 1000,
+            refresh_token,
+            expires_at: after_secs(now_ms, self.expires_in),
             refresh_token_expires_at: self
                 .refresh_token_expires_in
                 .filter(|secs| *secs > 0)
-                .map(|secs| now_ms + secs * 1000),
+                .map(|secs| after_secs(now_ms, secs)),
             scope: self.scope.unwrap_or_default(),
-        }
+            api_origin,
+        })
     }
+}
+
+fn after_secs(now_ms: u64, secs: u64) -> u64 {
+    now_ms.saturating_add(secs.saturating_mul(1000))
 }
 
 pub fn now_ms() -> u64 {
@@ -79,6 +94,7 @@ mod tests {
             expires_at,
             refresh_token_expires_at: None,
             scope: "read write".into(),
+            api_origin: None,
         }
     }
 
@@ -103,7 +119,7 @@ mod tests {
             r#"{"access_token":"a","refresh_token":"r","expires_in":60,"refresh_token_expires_in":0,"scope":"s"}"#,
         )
         .unwrap();
-        let data = response.into_token_data(1000, None);
+        let data = response.into_token_data(1000, None, None).unwrap();
         assert_eq!(data.expires_at, 61_000);
         assert_eq!(data.refresh_token_expires_at, None);
     }
@@ -112,7 +128,33 @@ mod tests {
     fn an_unrotated_refresh_token_is_kept() {
         let response: TokenResponse =
             serde_json::from_str(r#"{"access_token":"a","expires_in":60}"#).unwrap();
-        let data = response.into_token_data(0, Some("old-refresh"));
+        let data = response
+            .into_token_data(0, Some("old-refresh"), None)
+            .unwrap();
         assert_eq!(data.refresh_token, "old-refresh");
+    }
+
+    #[test]
+    fn a_response_without_any_refresh_token_is_not_turned_into_tokens() {
+        let missing: TokenResponse =
+            serde_json::from_str(r#"{"access_token":"a","expires_in":60}"#).unwrap();
+        let empty: TokenResponse =
+            serde_json::from_str(r#"{"access_token":"a","refresh_token":"","expires_in":60}"#)
+                .unwrap();
+        assert!(missing.into_token_data(0, None, None).is_none());
+        assert!(empty.into_token_data(0, None, None).is_none());
+    }
+
+    #[test]
+    fn huge_lifetimes_from_the_server_saturate_instead_of_wrapping() {
+        let response: TokenResponse = serde_json::from_str(&format!(
+            r#"{{"access_token":"a","refresh_token":"r","expires_in":{max},"refresh_token_expires_in":{max}}}"#,
+            max = u64::MAX
+        ))
+        .unwrap();
+        let data = response.into_token_data(5, None, None).unwrap();
+        assert_eq!(data.expires_at, u64::MAX);
+        assert_eq!(data.refresh_token_expires_at, Some(u64::MAX));
+        assert!(!data.is_expired(now_ms()));
     }
 }

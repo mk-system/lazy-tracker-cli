@@ -242,6 +242,7 @@ mod tests {
             expires_at: 1,
             refresh_token_expires_at: Some(2),
             scope: "read write".into(),
+            api_origin: None,
         }
     }
 

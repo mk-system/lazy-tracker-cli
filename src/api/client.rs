@@ -208,6 +208,7 @@ mod tests {
             expires_at: now_ms() + 3_600_000,
             refresh_token_expires_at: None,
             scope: "read write".into(),
+            api_origin: None,
         }
     }
 

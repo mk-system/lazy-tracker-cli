@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::auth::oauth::{self, OAuthError};
+use crate::auth::session;
 use crate::auth::token::{TokenData, TokenResponse, now_ms};
 use crate::auth::{CLIENT_ID, DEFAULT_SCOPES};
 use crate::config::api_url;
@@ -65,7 +66,11 @@ pub fn poll_for_token(
     code: &DeviceCode,
     sleep: &mut dyn FnMut(Duration),
 ) -> Result<TokenData, CliError> {
-    let deadline = Instant::now() + Duration::from_secs(code.expires_in);
+    let deadline = Instant::now()
+        .checked_add(Duration::from_secs(code.expires_in))
+        .ok_or_else(|| {
+            CliError::Auth("The server returned an invalid device code lifetime.".to_owned())
+        })?;
     let mut interval = code.interval();
     let body = json!({
         "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
@@ -90,7 +95,13 @@ pub fn poll_for_token(
                     e,
                 )
             })?;
-            return Ok(parsed.into_token_data(now_ms(), None));
+            return parsed
+                .into_token_data(now_ms(), None, session::api_origin(ctx)?)
+                .ok_or_else(|| {
+                    CliError::Auth(
+                        "The server did not return a refresh token. Please try again.".to_owned(),
+                    )
+                });
         }
 
         let error = OAuthError::parse(&response.body).ok_or_else(|| {
@@ -197,6 +208,46 @@ mod tests {
         assert_eq!(tokens.access_token, "a");
         assert!(tokens.refresh_token_expires_at.is_some());
         assert_eq!(sleeps, [Duration::from_secs(3); 2]);
+    }
+
+    #[test]
+    fn issued_tokens_record_the_api_that_issued_them() {
+        let (result, _) = poll(vec![Route::new("POST", TOKEN_PATH).json(ISSUED)], None);
+        assert!(
+            result
+                .unwrap()
+                .api_origin
+                .unwrap()
+                .starts_with("http://127.0.0.1:")
+        );
+    }
+
+    #[test]
+    fn tokens_without_a_refresh_token_are_refused() {
+        let (result, _) = poll(
+            vec![Route::new("POST", TOKEN_PATH).json(r#"{"access_token":"a","expires_in":3600}"#)],
+            None,
+        );
+        assert!(result.unwrap_err().to_string().contains("refresh token"));
+    }
+
+    #[test]
+    fn an_absurd_device_code_lifetime_is_an_error_not_a_panic() {
+        let server = MockServer::start(vec![]);
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = Context::for_tests(
+            &server.url(),
+            Box::new(MemoryStore::default()),
+            dir.path().into(),
+        );
+        let forever = DeviceCode {
+            expires_in: u64::MAX,
+            ..code(None)
+        };
+
+        let err = poll_for_token(&ctx, &forever, &mut |_| {}).unwrap_err();
+        assert!(err.to_string().contains("device code lifetime"));
+        assert!(server.requests().is_empty());
     }
 
     #[test]

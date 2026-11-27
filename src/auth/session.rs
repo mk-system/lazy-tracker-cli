@@ -4,7 +4,7 @@ use crate::auth::CLIENT_ID;
 use crate::auth::lock::AuthLock;
 use crate::auth::oauth::{self, OAuthError};
 use crate::auth::token::{TokenData, TokenResponse, now_ms};
-use crate::config::legacy;
+use crate::config::{api_url, legacy};
 use crate::context::Context;
 use crate::error::{CliError, StoreError};
 
@@ -26,6 +26,7 @@ fn not_authenticated() -> CliError {
 /// A store that cannot be read is reported as such, never as "logged out".
 pub fn credentials(ctx: &Context) -> Result<TokenData, CliError> {
     let tokens = ctx.store.load()?.ok_or_else(not_authenticated)?;
+    ensure_issued_here(ctx, &tokens)?;
     if !tokens.is_expired(now_ms()) {
         return Ok(tokens);
     }
@@ -38,6 +39,7 @@ pub fn credentials(ctx: &Context) -> Result<TokenData, CliError> {
 pub fn refresh(ctx: &Context, stale: &str, trigger: Trigger) -> Result<TokenData, CliError> {
     let _lock = AuthLock::acquire(&ctx.config_dir)?;
     let current = ctx.store.load()?.ok_or_else(not_authenticated)?;
+    ensure_issued_here(ctx, &current)?;
     let fresh = !current.is_expired(now_ms());
 
     if current.refresh_token != stale && fresh {
@@ -72,7 +74,9 @@ fn exchange(ctx: &Context, refresh_token: &str) -> Result<TokenData, CliError> {
                 body: None,
             }
         })?;
-        let tokens = parsed.into_token_data(now_ms(), Some(refresh_token));
+        let tokens = parsed
+            .into_token_data(now_ms(), Some(refresh_token), api_origin(ctx)?)
+            .ok_or_else(|| CliError::Auth(SESSION_EXPIRED.to_owned()))?;
         ctx.store.save(&tokens)?;
         return Ok(tokens);
     }
@@ -114,6 +118,27 @@ fn is_definitive_rejection(status: u16, error: Option<&str>) -> bool {
     status == 401 || (status == 400 && error == Some("invalid_grant"))
 }
 
+pub fn api_origin(ctx: &Context) -> Result<Option<String>, CliError> {
+    Ok(api_url::origin_of(ctx.api_url()?))
+}
+
+/// Tokens are never sent to an API other than the one that issued them, so a
+/// mistyped `--api-url` cannot hand the refresh token to another server. The
+/// stored tokens are kept: they are still valid for their own API.
+pub fn ensure_issued_here(ctx: &Context, tokens: &TokenData) -> Result<(), CliError> {
+    let Some(issuer) = tokens.api_origin.as_deref() else {
+        return Ok(());
+    };
+    let current = api_origin(ctx)?;
+    if current.as_deref() == Some(issuer) {
+        return Ok(());
+    }
+    Err(CliError::Auth(format!(
+        "You are logged in to {issuer}, not {}. Use that API URL, or run `lt auth login --force` to sign in to this one.",
+        current.as_deref().unwrap_or("this API")
+    )))
+}
+
 pub fn is_client_error(status: u16) -> bool {
     (400..500).contains(&status) && status != 429
 }
@@ -124,6 +149,7 @@ pub fn ensure_loginable(ctx: &Context) -> Result<bool, CliError> {
     let Some(tokens) = ctx.store.load()? else {
         return Ok(true);
     };
+    ensure_issued_here(ctx, &tokens)?;
     if !tokens.is_expired(now_ms()) {
         return Ok(false);
     }
@@ -153,12 +179,15 @@ pub fn save_login(ctx: &Context, tokens: &TokenData) -> Result<(), CliError> {
 /// Returns false when there was nothing to log out of. `before_clear` sees the
 /// tokens read under the lock, so a concurrent refresh cannot hand it a pair
 /// that is about to be replaced.
-pub fn logout(ctx: &Context, before_clear: impl FnOnce(&TokenData)) -> Result<bool, CliError> {
+pub fn logout(
+    ctx: &Context,
+    before_clear: impl FnOnce(&TokenData) -> Result<(), CliError>,
+) -> Result<bool, CliError> {
     let _lock = AuthLock::acquire(&ctx.config_dir)?;
     let Some(tokens) = ctx.store.load()? else {
         return Ok(false);
     };
-    before_clear(&tokens);
+    before_clear(&tokens)?;
     ctx.store.clear()?;
     clear_legacy(ctx);
     Ok(true)
@@ -201,6 +230,7 @@ mod tests {
             expires_at,
             refresh_token_expires_at: None,
             scope: "read write".into(),
+            api_origin: None,
         }
     }
 
@@ -242,6 +272,42 @@ mod tests {
         let (server, ctx, _dir) = with_memory(vec![], Some(valid()));
         assert_eq!(credentials(&ctx).unwrap(), valid());
         assert!(server.requests().is_empty());
+    }
+
+    #[test]
+    fn tokens_issued_by_another_api_are_neither_sent_nor_cleared() {
+        let foreign = TokenData {
+            api_origin: Some("https://api.lazy-tracker.com".into()),
+            ..expired()
+        };
+        let (server, ctx, _dir) = with_memory(vec![], Some(foreign.clone()));
+
+        let err = credentials(&ctx).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("logged in to https://api.lazy-tracker.com")
+        );
+        assert!(server.requests().is_empty());
+        assert_eq!(stored(&ctx), Some(foreign));
+    }
+
+    #[test]
+    fn tokens_saved_without_an_origin_are_still_accepted() {
+        let (_server, ctx, _dir) = with_memory(vec![], Some(valid()));
+        assert_eq!(credentials(&ctx).unwrap(), valid());
+    }
+
+    #[test]
+    fn a_refresh_records_the_api_that_issued_the_tokens() {
+        let (server, ctx, _dir) = with_memory(
+            vec![Route::new("POST", TOKEN_PATH).json(REFRESH_OK)],
+            Some(expired()),
+        );
+        credentials(&ctx).unwrap();
+
+        let origin = api_url::origin_of(&server.url());
+        assert_eq!(stored(&ctx).unwrap().api_origin, origin);
+        assert!(credentials(&ctx).is_ok());
     }
 
     #[test]
@@ -436,7 +502,7 @@ mod tests {
     fn logout_also_removes_plaintext_tokens_left_by_the_bun_release() {
         let (_server, ctx, dir) = with_memory(vec![], Some(valid()));
         let (ctx, legacy) = with_legacy_tokens(ctx, dir.path());
-        logout(&ctx, |_| {}).unwrap();
+        logout(&ctx, |_| Ok(())).unwrap();
 
         assert!(!crate::config::legacy::has_tokens(&legacy));
         assert!(std::fs::read_to_string(&legacy).unwrap().contains("config"));
@@ -462,7 +528,13 @@ mod tests {
     fn logout_hands_the_tokens_read_under_the_lock_to_the_revoke_step() {
         let (_server, ctx, _dir) = with_memory(vec![], Some(valid()));
         let mut seen = None;
-        assert!(logout(&ctx, |t| seen = Some(t.clone())).unwrap());
+        assert!(
+            logout(&ctx, |t| {
+                seen = Some(t.clone());
+                Ok(())
+            })
+            .unwrap()
+        );
         assert_eq!(seen, Some(valid()));
     }
 
@@ -470,14 +542,20 @@ mod tests {
     fn logout_without_tokens_reports_nothing_to_do() {
         let (_server, ctx, _dir) = with_memory(vec![], None);
         let mut called = false;
-        assert!(!logout(&ctx, |_| called = true).unwrap());
+        assert!(
+            !logout(&ctx, |_| {
+                called = true;
+                Ok(())
+            })
+            .unwrap()
+        );
         assert!(!called);
     }
 
     #[test]
     fn logout_clears_the_store() {
         let (_server, ctx, _dir) = with_memory(vec![], Some(valid()));
-        logout(&ctx, |_| {}).unwrap();
+        logout(&ctx, |_| Ok(())).unwrap();
         assert_eq!(stored(&ctx), None);
     }
 }

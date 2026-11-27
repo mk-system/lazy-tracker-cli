@@ -60,6 +60,7 @@ mod tests {
             expires_at: 1,
             refresh_token_expires_at: None,
             scope: "read write".into(),
+            api_origin: None,
         }
     }
 
