@@ -41,8 +41,12 @@ fn git_root_at(dir: &Path) -> Option<PathBuf> {
 
     if container == "worktrees" {
         let real_git_dir = normalize(&gitdir.join("../.."));
-        return real_git_dir
-            .is_dir()
+        let points_back = fs::read_to_string(gitdir.join("gitdir"))
+            .ok()
+            .and_then(|back| fs::canonicalize(gitdir.join(back.trim())).ok())
+            .is_some_and(|back| fs::canonicalize(&git_path).is_ok_and(|own| own == back));
+        let is_repo = real_git_dir.file_name()? == ".git" && real_git_dir.is_dir();
+        return (is_repo && points_back)
             .then(|| real_git_dir.parent().map(Path::to_path_buf))
             .flatten();
     }
@@ -89,11 +93,59 @@ mod tests {
             ),
         )
         .unwrap();
+        fs::write(
+            root.join("main/.git/worktrees/feature/gitdir"),
+            format!("{}\n", root.join("feature/.git").display()),
+        )
+        .unwrap();
 
         assert_eq!(
             find_git_root(&root.join("feature")),
             Some(root.join("main"))
         );
+    }
+
+    #[test]
+    fn a_worktree_with_relative_paths_resolves_to_the_main_repository_root() {
+        let (_guard, root) = tmp();
+        fs::create_dir_all(root.join("main/.git/worktrees/rel")).unwrap();
+        fs::create_dir_all(root.join("rel")).unwrap();
+        fs::write(
+            root.join("rel/.git"),
+            "gitdir: ../main/.git/worktrees/rel\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("main/.git/worktrees/rel/gitdir"),
+            "../../../../rel/.git\n",
+        )
+        .unwrap();
+
+        assert_eq!(find_git_root(&root.join("rel")), Some(root.join("main")));
+    }
+
+    #[test]
+    fn a_worktrees_pointer_that_git_did_not_write_is_not_followed() {
+        let (_guard, root) = tmp();
+        // Any `<dir>/worktrees/<x>` would do without the checks: here the
+        // "repository" is not a .git directory and nothing points back.
+        fs::create_dir_all(root.join("victim/worktrees/x")).unwrap();
+        fs::create_dir_all(root.join("unpacked")).unwrap();
+        fs::write(
+            root.join("unpacked/.git"),
+            format!("gitdir: {}\n", root.join("victim/worktrees/x").display()),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("main/.git/worktrees/y")).unwrap();
+        fs::create_dir_all(root.join("other")).unwrap();
+        fs::write(
+            root.join("other/.git"),
+            format!("gitdir: {}\n", root.join("main/.git/worktrees/y").display()),
+        )
+        .unwrap();
+
+        assert_eq!(find_git_root(&root.join("unpacked")), None);
+        assert_eq!(find_git_root(&root.join("other")), None);
     }
 
     #[test]
