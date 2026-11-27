@@ -8,38 +8,47 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: Build, Lint and Test
-    runs-on: ubuntu-22.04
+  check:
+    name: Lint, Test and Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: Revisit runner labels after the GHEC migration; hosted runner names may change.
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The skill-flag step below diffs against the base branch, which needs
           # a merge base. A shallow clone has none.
           fetch-depth: 0
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Lint
-        run: bun run lint
+      # Hosted runners ship rustup, which installs the version pinned in
+      # rust-toolchain.toml; no third-party toolchain action is needed.
+      - name: Install Rust toolchain
+        run: rustup toolchain install
 
       - name: Format check
-        run: bun run format:check
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
 
       - name: Test
-        run: bun test
+        run: cargo test --locked
 
       - name: Build
-        run: bun run build
+        run: |
+          cargo build --release --locked
+          ./target/release/lt --version
 
       - name: Flag skill content changes for extra review
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && runner.os == 'Linux'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |

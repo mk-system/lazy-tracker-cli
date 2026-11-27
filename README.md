@@ -23,15 +23,41 @@ sudo mv lt /usr/local/bin/
 curl -L https://github.com/mk-system/lazy-tracker-cli/releases/latest/download/lt-linux-x64 -o lt
 chmod +x lt
 sudo mv lt /usr/local/bin/
+
+# Linux (arm64)
+curl -L https://github.com/mk-system/lazy-tracker-cli/releases/latest/download/lt-linux-arm64 -o lt
+chmod +x lt
+sudo mv lt /usr/local/bin/
+```
+
+Linux 版は musl の静的リンクバイナリで、glibc のバージョンに依存しない。**Windows はサポートしない**（v0.2.0 以降は配布物に含まれない）。
+
+#### チェックサムの検証
+
+各リリースには `SHA256SUMS` が添付されている。ダウンロードしたバイナリと同じディレクトリで検証する:
+
+```bash
+curl -LO https://github.com/mk-system/lazy-tracker-cli/releases/latest/download/SHA256SUMS
+shasum -a 256 -c SHA256SUMS --ignore-missing
+```
+
+`--ignore-missing` で、ダウンロードしていない他プラットフォームのバイナリを無視する。上の手順で `lt` にリネームした場合は、リネーム前のファイル名で検証すること。
+
+各バイナリには GitHub Actions でビルドしたことを示す来歴証明（build provenance attestation）も付いている。GitHub CLI で検証できる:
+
+```bash
+gh attestation verify lt-macos-arm64 --repo mk-system/lazy-tracker-cli
 ```
 
 ### ソースからビルド
 
+Rust のツールチェーン（[rustup](https://rustup.rs/)）が必要。バージョンは `rust-toolchain.toml` で固定されており、rustup が自動で導入する。
+
 ```bash
 git clone https://github.com/mk-system/lazy-tracker-cli.git
 cd lazy-tracker-cli
-bun install && bun run build
-sudo cp dist/lt /usr/local/bin/
+cargo build --release --locked
+sudo cp target/release/lt /usr/local/bin/
 ```
 
 ## セットアップ
@@ -44,14 +70,24 @@ lt auth login
 
 上記コマンドを実行後、ブラウザが自動的に開き、認証フローが開始される。
 
+ブラウザを開けない環境（SSH 先や headless な Linux など）では警告だけが表示されるので、表示された URL を手元のブラウザで開いてデバイスコードを入力する。
+
 ### 認証情報の保存場所
 
-- macOS: アクセストークン・リフレッシュトークンは Keychain に保存される
-- Linux / Windows: Keychain が利用できないため、以下の場所に**平文で**保存される
-  - Linux: `~/.config/lazy-tracker-cli/`
-  - Windows: `%APPDATA%/lazy-tracker-cli/`
+| OS    | 保存先                                                                     |
+| ----- | -------------------------------------------------------------------------- |
+| macOS | Keychain（service `lazy-tracker-cli`、account `tokens`）                   |
+| Linux | Secret Service（GNOME Keyring / KWallet など）。同じ service / account 名 |
 
-平文保存となる環境では、共有マシンでの使用時にアカウント保護に注意すること。ログアウト (`lt auth logout`) でトークンは削除される。
+Linux で Secret Service が動いていない環境（サーバー、コンテナ、CI など）では `lt auth login` がエラーで止まる。その場合、環境変数 `LT_INSECURE_TOKEN_FILE=1` を設定すると、トークンを設定ディレクトリの `tokens.json` に**平文で**（パーミッション 0600）保存する。他のユーザーが読み書きできる状態の `tokens.json` は読まずにエラーにする。この変数は macOS でも有効で、設定すると Keychain の代わりにファイルを使う。平文保存では共有マシンでのアカウント保護に注意すること。ログアウト (`lt auth logout`) でトークンは削除される。
+
+`lt auth status` で現在の保存先を確認できる。
+
+v0.1.x（Bun 版）からの移行: macOS の Keychain の項目はそのまま読めるので再ログインは不要。v0.1.x の設定ファイル（macOS `~/Library/Preferences/lazy-tracker-cli-nodejs/config.json`、Linux `~/.config/lazy-tracker-cli-nodejs/config.json`）は初回実行時に新しい設定ファイルへ引き継がれ、そこに残っていた平文トークンは保存先へ移したうえで削除される。
+
+### 設定ファイルの場所
+
+`~/.config/lazy-tracker-cli/config.json`（macOS / Linux 共通。`XDG_CONFIG_HOME` が設定されていれば `$XDG_CONFIG_HOME/lazy-tracker-cli/config.json`）。
 
 ### プロジェクト設定
 
@@ -92,6 +128,8 @@ lt config
 3. グローバル設定 (`default-team`, `default-project`)
 
 各ソースから team/project を個別に取得してマージする。例えば、グローバルに `default-team` を設定し、`.lazy-tracker.json` で `project` のみ指定すると、両方が組み合わされる。
+
+`.lazy-tracker.json` は、カレントディレクトリから上へ向かって git リポジトリのルートまで探す（リポジトリの外ではホームディレクトリまで）。リポジトリより上の階層にあるファイルは、勝手には読まない。複数のリポジトリで 1 つのファイルを共有したい場合は、環境変数 `LT_PROJECT_FILE` でそのファイルのパスを指定する。ファイルが壊れている（JSON として読めない、`team` / `project` が文字列でない、通常のファイルでない、64 KiB を超える）場合はエラーになるので、修正するか削除する。チケット番号で操作するときや `tickets create` で、team/project を `.lazy-tracker.json` から決めた場合は、使ったファイルのパスを stderr に表示する。
 
 ## 使い方
 
@@ -135,6 +173,8 @@ lt tickets delete <ticket-id>
 # 削除（確認スキップ）
 lt tickets delete <ticket-id> --force
 ```
+
+削除の確認プロンプトは端末からの入力を前提とする。stdin が端末でない（パイプ・エージェントからの実行など）場合は `--force` を付けないとエラーで終了する（`comments delete` / `skills uninstall` も同じ）。
 
 #### tickets list オプション
 
@@ -254,16 +294,20 @@ lt config:set <key> <value>
 
 ```bash
 # API URL を指定（デフォルト: https://api.lazy-tracker.com、この実行1回限り。恒久的に変更したい場合は
-# 下記の `lt config:set api-url` を使う）
+# `lt config:set api-url` を使う）
 lt --api-url https://example.com tickets list
 
 # カラー出力を無効化
 lt --no-color tickets list
 
 # 診断ログを出力（リクエストの method / URL / ステータス / 所要時間、
-# エラーレスポンスのボディ、スタックトレース）
+# エラーレスポンスのボディ、エラーの原因）
 lt --verbose comments list <ticket-id>
 ```
+
+API URL の解決順は `--api-url` > `lt config:set api-url` > `LT_API_URL` > 既定値。どの経路でも `https://` のみ受け付ける（ローカル開発用に `localhost` / `127.0.0.1` / `::1` だけは `http://` も可）。
+
+ログイン中のトークンは、発行した API と同じ origin にしか送らない。別の API URL を指定するとエラーになり、保存済みのトークンはそのまま残る。その API を使うなら `lt auth login --force` でログインし直す（保存済みのログインは置き換わる）。v0.1.x から引き継いだログインは発行元を記録していないため、既定の API と `lt config:set api-url` で設定した API にだけ送る。
 
 ### `--verbose` について
 
@@ -281,51 +325,42 @@ $ lt --verbose comments list 00000000-0000-0000-0000-000000000000
 [debug] → GET https://api.lazy-tracker.com/api/v1/tickets/00000000-.../chats
 [debug] ← 404 GET https://api.lazy-tracker.com/api/v1/tickets/00000000-.../chats (212ms)
 [debug] response body: {"status":"error","errorCode":"NOT_FOUND","details":null,"exceptionInfo":null}
-✖ Failed to fetch comments
+✗ Failed to fetch comments
 Request failed with status 404
   status: 404
   response: {"status":"error","errorCode":"NOT_FOUND","details":null,"exceptionInfo":null}
-  at customFetch (.../src/api/client.ts:80:17)
 ```
+
+通信エラーなど原因が連鎖している場合は `caused by: ...` の行が続く。
 
 ## 環境変数
 
-| 変数名       | 説明    | デフォルト                     |
-| ------------ | ------- | ------------------------------ |
-| `LT_API_URL` | API URL | `https://api.lazy-tracker.com` |
+| 変数名                   | 説明                                                                | デフォルト                     |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------------ |
+| `LT_API_URL`             | API URL（`config:set api-url` より優先度が低い）                    | `https://api.lazy-tracker.com` |
+| `LT_INSECURE_TOKEN_FILE` | `1` でトークンを平文ファイル（0600）に保存する                      | 未設定                         |
+| `LT_PROJECT_FILE`        | 使う `.lazy-tracker.json` のパス（リポジトリの外にあるファイルを使う場合） | 未設定                         |
+| `LT_NO_BROWSER`          | `1` で `lt auth login` がブラウザを開かず、認可 URL の表示だけにする | 未設定                         |
+| `LT_CONFIG_DIR`          | 設定ディレクトリを上書きする（主にテスト用。旧設定の移行も行わない。誰でも書き込めるディレクトリは拒否する） | `~/.config/lazy-tracker-cli`   |
+| `NO_COLOR`               | 設定するとカラー出力を無効化する                                    | 未設定                         |
 
 ## 開発
 
-[Bun](https://bun.sh/) 1.x を使用。
+Rust（バージョンは `rust-toolchain.toml` で固定）を使用。
 
 ```bash
-# 依存関係インストール
-bun install
-
 # 開発実行
-bun run dev
+cargo run -- --verbose tickets list
 
-# ビルド（ローカル用シングルバイナリ）
-bun run build
+# テスト（実ユーザーの Keychain・設定ディレクトリには触れない）
+cargo test
 
-# リリース向け（全プラットフォーム）
-bun run build:all
+# Lint / Format（CI と同じ）
+cargo fmt --all --check
+cargo clippy --all-targets --locked -- -D warnings
 
-# 個別ビルド（必要な場合のみ）
-bun run build:macos-arm64
-bun run build:macos-x64
-bun run build:linux-x64
-bun run build:linux-arm64
-bun run build:windows-x64
-
-# API クライアント再生成（バックエンド起動必須）
-bun run generate-api
-
-# テスト
-bun test
-
-# Lint / Format
-bun run lint
-bun run format:check
-bun run format
+# リリースビルド
+cargo build --release --locked
 ```
+
+Keychain / Secret Service を実際に読み書きするテストは `#[ignore]` 付きで、使い捨ての項目名（`lazy-tracker-cli-test`）を使う。手動で確認する場合のみ `cargo test -- --ignored` で実行する。

@@ -1,0 +1,35 @@
+[package]
+name = "lt"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.100.0"
+description = "Lazy Tracker CLI - A command-line interface for Lazy Tracker"
+license = "MIT"
+publish = false
+
+[dependencies]
+anstream = "1.0.0"
+anstyle = "1.0.14"
+clap = { version = "4.6.10", features = ["derive"] }
+indicatif = "0.18.6"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+thiserror = "2.0.21"
+ureq = { version = "3.5.2", features = ["json"] }
+unicode-width = "0.2.3"
+url = "2.5.9"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
+zbus-secret-service-keyring-store = { version = "1.0.1", features = ["rt-async-io-crypto-rust"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[lints.clippy]
+all = "warn"
+
+[profile.release]
+lto = "thin"
+strip = true
+panic = "abort"
