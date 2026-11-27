@@ -138,7 +138,7 @@ jobs:
               *) echo "::error::--version printed '${output}', expected ${GITHUB_REF_NAME#v}"; exit 1 ;;
             esac
           else
-            # x86_64 cannot run on this runner; check the architecture only.
+            # x86_64 binaries cannot run on this arm64 runner.
             info=$(file "dist/${ARTIFACT}")
             echo "$info"
             case "$info" in

@@ -61,9 +61,7 @@ pub fn request_device_code(ctx: &Context) -> Result<DeviceCode, CliError> {
     })
 }
 
-/// Polls the token endpoint until the user approves, refuses, or the code
-/// expires. The first poll is immediate; `slow_down` lengthens the interval
-/// for every later poll, as RFC 8628 §3.5 requires.
+/// `slow_down` adds to every later interval (RFC 8628 §3.5).
 pub fn poll_for_token(
     ctx: &Context,
     code: &DeviceCode,

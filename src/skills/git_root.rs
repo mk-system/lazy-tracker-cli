@@ -133,8 +133,6 @@ mod tests {
     #[test]
     fn a_worktrees_pointer_that_git_did_not_write_is_not_followed() {
         let (_guard, root) = tmp();
-        // Any `<dir>/worktrees/<x>` would do without the checks: here the
-        // "repository" is not a .git directory and nothing points back.
         fs::create_dir_all(root.join("victim/worktrees/x")).unwrap();
         fs::create_dir_all(root.join("unpacked")).unwrap();
         fs::write(
