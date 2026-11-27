@@ -129,6 +129,19 @@ fn a_write_by_ticket_number_says_which_project_file_chose_the_target() {
 }
 
 #[test]
+fn a_list_answered_with_html_is_an_error_not_zero_items() {
+    let server = MockServer::start(vec![
+        Route::new("GET", "/api/v1/tickets").text("text/html", "<html>sign in</html>"),
+    ]);
+    let env = logged_in(&server);
+
+    let out = env.run(&["tickets", "list"]);
+    assert_eq!(out.code, Some(1));
+    assert!(out.stdout.is_empty());
+    assert!(out.stderr.contains("expected a list"));
+}
+
+#[test]
 fn tickets_list_table_renders_columns_instead_of_json() {
     let server = MockServer::start(vec![
         Route::new("GET", "/api/v1/tickets").json(TICKETS_BODY),

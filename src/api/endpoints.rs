@@ -5,7 +5,21 @@ use crate::api::client::{Method, build_url, call};
 use crate::context::Context;
 use crate::error::CliError;
 
+/// Non-list endpoints keep treating a non-JSON body as no payload; only list
+/// endpoints, where it would read as "no items", turn it into an error.
 fn request<B: Serialize>(
+    ctx: &Context,
+    method: Method,
+    segments: &[&str],
+    body: Option<&B>,
+) -> Result<Value, CliError> {
+    request_any(ctx, method, segments, body).map(|value| match value {
+        Value::String(_) => Value::Null,
+        other => other,
+    })
+}
+
+fn request_any<B: Serialize>(
     ctx: &Context,
     method: Method,
     segments: &[&str],
@@ -25,8 +39,11 @@ fn get(ctx: &Context, segments: &[&str]) -> Result<Value, CliError> {
     request::<()>(ctx, Method::Get, segments, None)
 }
 
-/// `Null` stands for an empty or non-JSON body, which has always meant "no
-/// items"; any other JSON value means the response is not what we expect.
+fn get_list(ctx: &Context, segments: &[&str]) -> Result<Vec<Value>, CliError> {
+    request_any::<()>(ctx, Method::Get, segments, None).and_then(list)
+}
+
+/// `Null` is what `client::interpret` returns for an empty body.
 fn list(value: Value) -> Result<Vec<Value>, CliError> {
     match value {
         Value::Array(items) => Ok(items),
@@ -41,7 +58,7 @@ fn list(value: Value) -> Result<Vec<Value>, CliError> {
 fn json_kind(value: &Value) -> &'static str {
     match value {
         Value::Object(_) => "an object",
-        Value::String(_) => "a string",
+        Value::String(_) => "a string or a non-JSON body",
         Value::Number(_) => "a number",
         Value::Bool(_) => "a boolean",
         Value::Array(_) | Value::Null => "a list",
@@ -49,31 +66,31 @@ fn json_kind(value: &Value) -> &'static str {
 }
 
 pub fn my_teams(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["teams", "my"]).and_then(list)
+    get_list(ctx, &["teams", "my"])
 }
 
 pub fn projects(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["projects"]).and_then(list)
+    get_list(ctx, &["projects"])
 }
 
 pub fn recent_projects(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["projects", "recent"]).and_then(list)
+    get_list(ctx, &["projects", "recent"])
 }
 
 pub fn team_projects(ctx: &Context, team: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["projects", "team", team]).and_then(list)
+    get_list(ctx, &["projects", "team", team])
 }
 
 pub fn tickets(ctx: &Context) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["tickets"]).and_then(list)
+    get_list(ctx, &["tickets"])
 }
 
 pub fn team_tickets(ctx: &Context, team: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["teams", team, "tickets"]).and_then(list)
+    get_list(ctx, &["teams", team, "tickets"])
 }
 
 pub fn project_tickets(ctx: &Context, team: &str, project: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["teams", team, "projects", project, "tickets"]).and_then(list)
+    get_list(ctx, &["teams", team, "projects", project, "tickets"])
 }
 
 pub fn ticket(ctx: &Context, ticket_id: &str) -> Result<Value, CliError> {
@@ -161,7 +178,7 @@ pub fn delete_ticket(ctx: &Context, ticket_id: &str) -> Result<(), CliError> {
 }
 
 pub fn chats(ctx: &Context, ticket_id: &str) -> Result<Vec<Value>, CliError> {
-    get(ctx, &["tickets", ticket_id, "chats"]).and_then(list)
+    get_list(ctx, &["tickets", ticket_id, "chats"])
 }
 
 pub fn create_chat(ctx: &Context, ticket_id: &str, message: &str) -> Result<Value, CliError> {

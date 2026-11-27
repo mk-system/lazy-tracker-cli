@@ -171,8 +171,13 @@ fn interpret(response: RawResponse) -> Result<Value, CliError> {
             body: (!response.body.is_empty()).then_some(response.body),
         });
     }
-    if !response.content_type.contains("application/json") || response.body.trim().is_empty() {
+    if response.body.trim().is_empty() {
         return Ok(Value::Null);
+    }
+    // A captive portal or proxy can answer 200 with HTML; passing the text on
+    // lets callers that expect JSON tell it apart from an empty body.
+    if !response.content_type.contains("application/json") {
+        return Ok(Value::String(response.body));
     }
     let parsed: Value = serde_json::from_str(&response.body)
         .map_err(|e| CliError::network(format!("Network error: invalid JSON response: {e}"), e))?;
@@ -363,6 +368,22 @@ mod tests {
         assert!(err.to_string().contains("lt auth login --force"));
         assert!(h.ctx.store.load().unwrap().is_some());
         assert_eq!(h.server.count("POST", "/api/v1/oauth/token"), 1);
+    }
+
+    #[test]
+    fn a_non_json_success_body_is_passed_on_as_text_and_an_empty_one_as_null() {
+        let html = Harness::new(vec![
+            Route::new("GET", PATH).text("text/html", "<html>login</html>"),
+        ]);
+        assert_eq!(
+            html.get().unwrap(),
+            Value::String("<html>login</html>".into())
+        );
+
+        let empty = Harness::new(vec![
+            Route::new("GET", PATH).status(204).text("text/plain", ""),
+        ]);
+        assert_eq!(empty.get().unwrap(), Value::Null);
     }
 
     #[test]
