@@ -6,7 +6,7 @@ use crate::commands::with_spinner;
 use crate::context::Context;
 use crate::error::CliError;
 use crate::output::json::{print_json, print_stdout};
-use crate::output::table::{render, truncate};
+use crate::output::table::{Header, render, truncate};
 
 pub fn run(ctx: &Context, args: &TeamsArgs) -> Result<(), CliError> {
     let teams = with_spinner(ctx, "Fetching teams...", "Failed to fetch teams", || {
@@ -34,7 +34,7 @@ pub fn run(ctx: &Context, args: &TeamsArgs) -> Result<(), CliError> {
         })
         .collect();
     print_stdout(
-        &format!("\n{}", render(&["Key", "Description"], &rows, true)),
+        &format!("\n{}", render(&["Key", "Description"], &rows, Header::Bold)),
         ctx.ui.color(),
     );
     Ok(())

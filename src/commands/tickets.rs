@@ -12,7 +12,7 @@ use crate::error::CliError;
 use crate::output::json::{print_json, print_stdout};
 use crate::output::prompt::{confirm, ensure_can_confirm};
 use crate::output::style;
-use crate::output::table::render;
+use crate::output::table::{Header, render};
 use crate::ticket_ref::{self, is_ticket_number, scope_fields};
 
 const DEFAULT_COLUMNS: [&str; 5] = ["ticketNumber", "title", "state", "projectKey", "teamKey"];
@@ -144,7 +144,7 @@ fn ticket_table(tickets: &[Value], columns: &[String]) -> String {
         .iter()
         .map(|t| columns.iter().map(|c| column_value(t, c)).collect())
         .collect();
-    render(&headers, &rows, false)
+    render(&headers, &rows, Header::Plain)
 }
 
 fn show(ctx: &Context, target: &TicketTarget) -> Result<(), CliError> {

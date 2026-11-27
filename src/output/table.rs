@@ -18,7 +18,13 @@ pub fn truncate(text: &str, max: usize) -> String {
     format!("{kept}...")
 }
 
-pub fn render(headers: &[&str], rows: &[Vec<String>], bold_header: bool) -> String {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Header {
+    Plain,
+    Bold,
+}
+
+pub fn render(headers: &[&str], rows: &[Vec<String>], header_style: Header) -> String {
     let rows: Vec<Vec<String>> = rows
         .iter()
         .map(|row| row.iter().map(|cell| style::strip_controls(cell)).collect())
@@ -36,10 +42,9 @@ pub fn render(headers: &[&str], rows: &[Vec<String>], bold_header: bool) -> Stri
         .collect();
 
     let header = join_padded(headers.iter().copied(), &widths);
-    let header = if bold_header {
-        style::bold(&header)
-    } else {
-        header
+    let header = match header_style {
+        Header::Bold => style::bold(&header),
+        Header::Plain => header,
     };
     let rule = widths
         .iter()
@@ -86,7 +91,7 @@ mod tests {
             vec!["1".to_owned(), "Fix login".to_owned()],
             vec!["12".to_owned(), "Doc".to_owned()],
         ];
-        let rendered = render(&["#", "Title"], &rows, false);
+        let rendered = render(&["#", "Title"], &rows, Header::Plain);
 
         assert_eq!(
             rendered,
@@ -100,7 +105,7 @@ mod tests {
             vec!["オフィス".to_owned(), "10".to_owned()],
             vec!["forge".to_owned(), "2".to_owned()],
         ];
-        let rendered = render(&["Name", "V"], &rows, false);
+        let rendered = render(&["Name", "V"], &rows, Header::Plain);
 
         assert_eq!(
             rendered,
@@ -119,7 +124,7 @@ mod tests {
     #[test]
     fn render_replaces_control_characters_in_cells() {
         let rows = vec![vec!["a\u{1b}]0;x\u{7}b".to_owned()]];
-        let rendered = render(&["T"], &rows, false);
+        let rendered = render(&["T"], &rows, Header::Plain);
 
         assert!(!rendered.contains('\u{1b}'));
         assert!(!rendered.contains('\u{7}'));

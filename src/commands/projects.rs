@@ -7,7 +7,7 @@ use crate::commands::with_spinner;
 use crate::context::Context;
 use crate::error::CliError;
 use crate::output::json::{print_json, print_stdout};
-use crate::output::table::{render, truncate};
+use crate::output::table::{Header, render, truncate};
 
 pub fn run(ctx: &Context, args: &ProjectsArgs) -> Result<(), CliError> {
     let projects = with_spinner(
@@ -46,7 +46,11 @@ pub fn run(ctx: &Context, args: &ProjectsArgs) -> Result<(), CliError> {
     print_stdout(
         &format!(
             "\n{}",
-            render(&["Team", "Project", "Description", "Velocity"], &rows, true)
+            render(
+                &["Team", "Project", "Description", "Velocity"],
+                &rows,
+                Header::Bold
+            )
         ),
         ctx.ui.color(),
     );
