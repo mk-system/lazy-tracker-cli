@@ -294,6 +294,9 @@ fn api_url_flag_overrides_lt_api_url_for_api_requests() {
     let server = MockServer::start(vec![Route::new("GET", "/api/v1/teams/my").json("[]")]);
     let env = TestEnv::new(&dead_url());
     env.write_tokens("refresh-1", FAR_FUTURE_MS);
+    let mut tokens = env.tokens().unwrap();
+    tokens["apiOrigin"] = server.url().into();
+    env.write_raw_tokens(&tokens.to_string());
 
     let out = env.run(&["--api-url", &server.url(), "teams", "--json"]);
     out.assert_success();
@@ -496,7 +499,7 @@ fn tokens_from_another_api_are_not_sent_to_the_api_url_given_on_the_command_line
     let env = logged_in(&server);
     let mut tokens = env.tokens().unwrap();
     tokens["apiOrigin"] = "https://api.lazy-tracker.com".into();
-    fs::write(env.tokens_path(), tokens.to_string()).unwrap();
+    env.write_raw_tokens(&tokens.to_string());
 
     let list = env.run(&["tickets", "list", "--team", "t", "--project", "p"]);
     let logout = env.run(&["auth", "logout", "--revoke"]);

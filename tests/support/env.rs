@@ -66,13 +66,31 @@ impl TestEnv {
 
     pub fn write_tokens(&self, refresh_token: &str, expires_at: u64) {
         fs::create_dir_all(&self.config_dir).unwrap();
+        let origin = url::Url::parse(&self.api_url)
+            .map(|u| u.origin().ascii_serialization())
+            .unwrap_or_default();
         let tokens = serde_json::json!({
             "accessToken": format!("access-for-{refresh_token}"),
             "refreshToken": refresh_token,
             "expiresAt": expires_at,
             "scope": "read write",
+            "apiOrigin": origin,
         });
-        fs::write(self.tokens_path(), tokens.to_string()).unwrap();
+        self.write_raw_tokens(&tokens.to_string());
+    }
+
+    /// Owner-only, like the files lt writes itself.
+    pub fn write_raw_tokens(&self, raw: &str) {
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::create_dir_all(&self.config_dir).unwrap();
+        let _ = fs::remove_file(self.tokens_path());
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(self.tokens_path())
+            .unwrap();
+        std::io::Write::write_all(&mut file, raw.as_bytes()).unwrap();
     }
 
     pub fn tokens(&self) -> Option<Value> {

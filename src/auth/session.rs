@@ -123,17 +123,35 @@ pub fn api_origin(ctx: &Context) -> Result<Option<String>, CliError> {
 /// mistyped `--api-url` cannot hand the refresh token to another server. The
 /// stored tokens are kept: they are still valid for their own API.
 pub fn ensure_issued_here(ctx: &Context, tokens: &TokenData) -> Result<(), CliError> {
-    let Some(issuer) = tokens.api_origin.as_deref() else {
-        return Ok(());
-    };
     let current = api_origin(ctx)?;
-    if current.as_deref() == Some(issuer) {
-        return Ok(());
+    let here = current.as_deref().unwrap_or("this API");
+    match tokens.api_origin.as_deref() {
+        Some(issuer) if current.as_deref() == Some(issuer) => Ok(()),
+        Some(issuer) => Err(CliError::Auth(format!(
+            "You are logged in to {issuer}, not {here}. Use that API URL, or run `lt auth login --force` to sign in to this one."
+        ))),
+        // Tokens saved before the origin was recorded (the Bun release, or
+        // its Keychain item read directly) came from the default API or the
+        // one configured in config.json, and are only trusted there.
+        None => {
+            let known = [
+                Some(api_url::DEFAULT_API_URL),
+                ctx.settings.api_url.as_deref(),
+            ];
+            if known
+                .into_iter()
+                .flatten()
+                .filter_map(api_url::origin_of)
+                .any(|o| current.as_deref() == Some(o.as_str()))
+            {
+                Ok(())
+            } else {
+                Err(CliError::Auth(format!(
+                    "Your saved login does not record which API issued it, so it is not sent to {here}. Run `lt auth login --force` to sign in to this API."
+                )))
+            }
+        }
     }
-    Err(CliError::Auth(format!(
-        "You are logged in to {issuer}, not {}. Use that API URL, or run `lt auth login --force` to sign in to this one.",
-        current.as_deref().unwrap_or("this API")
-    )))
 }
 
 pub fn is_client_error(status: u16) -> bool {
@@ -242,6 +260,13 @@ mod tests {
         tokens("old-refresh", FAR_FUTURE_MS)
     }
 
+    fn issued_by(url: &str, tokens: TokenData) -> TokenData {
+        TokenData {
+            api_origin: api_url::origin_of(url),
+            ..tokens
+        }
+    }
+
     fn context(server: &MockServer, store: Box<dyn TokenStore>, dir: &Path) -> Context {
         Context::for_tests(&server.url(), store, dir.to_path_buf()).0
     }
@@ -253,21 +278,34 @@ mod tests {
         let server = MockServer::start(routes);
         let dir = tempfile::tempdir().unwrap();
         let store = match stored {
-            Some(t) => MemoryStore::with(t),
+            Some(t) if t.api_origin.is_some() => MemoryStore::with(t),
+            Some(t) => MemoryStore::with(issued_by(&server.url(), t)),
             None => MemoryStore::default(),
         };
         let ctx = context(&server, Box::new(store), dir.path());
         (server, ctx, dir)
     }
 
+    fn without_origin(tokens: TokenData) -> TokenData {
+        TokenData {
+            api_origin: None,
+            ..tokens
+        }
+    }
+
+    /// The stored tokens, compared against fixtures that carry no origin.
     fn stored(ctx: &Context) -> Option<TokenData> {
+        stored_raw(ctx).map(without_origin)
+    }
+
+    fn stored_raw(ctx: &Context) -> Option<TokenData> {
         ctx.store.load().unwrap()
     }
 
     #[test]
     fn an_unexpired_token_is_returned_without_any_request() {
         let (server, ctx, _dir) = with_memory(vec![], Some(valid()));
-        assert_eq!(credentials(&ctx).unwrap(), valid());
+        assert_eq!(without_origin(credentials(&ctx).unwrap()), valid());
         assert!(server.requests().is_empty());
     }
 
@@ -285,13 +323,50 @@ mod tests {
                 .contains("logged in to https://api.lazy-tracker.com")
         );
         assert!(server.requests().is_empty());
-        assert_eq!(stored(&ctx), Some(foreign));
+        assert_eq!(stored_raw(&ctx), Some(foreign));
     }
 
     #[test]
-    fn tokens_saved_without_an_origin_are_still_accepted() {
-        let (_server, ctx, _dir) = with_memory(vec![], Some(valid()));
+    fn tokens_without_an_origin_are_used_with_the_default_api() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = Context::for_tests(
+            api_url::DEFAULT_API_URL,
+            Box::new(MemoryStore::with(valid())),
+            dir.path().into(),
+        );
         assert_eq!(credentials(&ctx).unwrap(), valid());
+    }
+
+    #[test]
+    fn tokens_without_an_origin_are_used_with_the_api_url_in_config_json() {
+        let server = MockServer::start(vec![]);
+        let dir = tempfile::tempdir().unwrap();
+        let (mut ctx, _) = Context::for_tests(
+            &server.url(),
+            Box::new(MemoryStore::with(valid())),
+            dir.path().into(),
+        );
+        ctx.settings.api_url = Some(server.url());
+        assert_eq!(credentials(&ctx).unwrap(), valid());
+    }
+
+    #[test]
+    fn tokens_without_an_origin_are_not_sent_to_any_other_api() {
+        let server = MockServer::start(vec![]);
+        let dir = tempfile::tempdir().unwrap();
+        let (ctx, _) = Context::for_tests(
+            &server.url(),
+            Box::new(MemoryStore::with(expired())),
+            dir.path().into(),
+        );
+
+        let err = credentials(&ctx).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("does not record which API issued it")
+        );
+        assert!(server.requests().is_empty());
+        assert_eq!(stored(&ctx), Some(expired()));
     }
 
     #[test]
@@ -303,7 +378,7 @@ mod tests {
         credentials(&ctx).unwrap();
 
         let origin = api_url::origin_of(&server.url());
-        assert_eq!(stored(&ctx).unwrap().api_origin, origin);
+        assert_eq!(stored_raw(&ctx).unwrap().api_origin, origin);
         assert!(credentials(&ctx).is_ok());
     }
 
@@ -345,7 +420,7 @@ mod tests {
         drop(unused);
         let (ctx, _) = Context::for_tests(
             &url,
-            Box::new(MemoryStore::with(expired())),
+            Box::new(MemoryStore::with(issued_by(&url, expired()))),
             dir.path().into(),
         );
 
@@ -433,7 +508,9 @@ mod tests {
         ]);
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tokens.json");
-        FileStore::new(path.clone()).save(&expired()).unwrap();
+        FileStore::new(path.clone())
+            .save(&issued_by(&server.url(), expired()))
+            .unwrap();
 
         let handles: Vec<_> = (0..2)
             .map(|_| {
@@ -532,7 +609,7 @@ mod tests {
             })
             .unwrap()
         );
-        assert_eq!(seen, Some(valid()));
+        assert_eq!(seen.map(without_origin), Some(valid()));
     }
 
     #[test]

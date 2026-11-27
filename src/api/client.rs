@@ -226,7 +226,10 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let (ctx, log) = Context::for_tests(
                 &server.url(),
-                Box::new(MemoryStore::with(valid_tokens())),
+                Box::new(MemoryStore::with(TokenData {
+                    api_origin: crate::config::api_url::origin_of(&server.url()),
+                    ..valid_tokens()
+                })),
                 dir.path().to_path_buf(),
             );
             Self {
