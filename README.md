@@ -129,7 +129,7 @@ lt config
 
 各ソースから team/project を個別に取得してマージする。例えば、グローバルに `default-team` を設定し、`.lazy-tracker.json` で `project` のみ指定すると、両方が組み合わされる。
 
-`.lazy-tracker.json` は、カレントディレクトリから上へ向かって git リポジトリのルートまで探す（リポジトリの外ではホームディレクトリまで）。リポジトリより上の階層にあるファイルは、勝手には読まない。複数のリポジトリで 1 つのファイルを共有したい場合は、環境変数 `LT_PROJECT_FILE` でそのファイルのパスを指定する。ファイルが壊れている（JSON として読めない）場合はエラーになるので、修正するか削除する。
+`.lazy-tracker.json` は、カレントディレクトリから上へ向かって git リポジトリのルートまで探す（リポジトリの外ではホームディレクトリまで）。リポジトリより上の階層にあるファイルは、勝手には読まない。複数のリポジトリで 1 つのファイルを共有したい場合は、環境変数 `LT_PROJECT_FILE` でそのファイルのパスを指定する。ファイルが壊れている（JSON として読めない、`team` / `project` が文字列でない、通常のファイルでない、64 KiB を超える）場合はエラーになるので、修正するか削除する。チケット番号で操作するときや `tickets create` で、team/project を `.lazy-tracker.json` から決めた場合は、使ったファイルのパスを stderr に表示する。
 
 ## 使い方
 
@@ -307,6 +307,8 @@ lt --verbose comments list <ticket-id>
 
 API URL の解決順は `--api-url` > `lt config:set api-url` > `LT_API_URL` > 既定値。どの経路でも `https://` のみ受け付ける（ローカル開発用に `localhost` / `127.0.0.1` / `::1` だけは `http://` も可）。
 
+ログイン中のトークンは、発行した API と同じ origin にしか送らない。別の API URL を指定するとエラーになり、保存済みのトークンはそのまま残る。その API を使うなら `lt auth login --force` でログインし直す（保存済みのログインは置き換わる）。
+
 ### `--verbose` について
 
 診断ログはすべて **stderr** に出力される。stdout は JSON のままなので、
@@ -339,7 +341,7 @@ Request failed with status 404
 | `LT_INSECURE_TOKEN_FILE` | `1` でトークンを平文ファイル（0600）に保存する                      | 未設定                         |
 | `LT_PROJECT_FILE`        | 使う `.lazy-tracker.json` のパス（リポジトリの外にあるファイルを使う場合） | 未設定                         |
 | `LT_NO_BROWSER`          | `1` で `lt auth login` がブラウザを開かず、認可 URL の表示だけにする | 未設定                         |
-| `LT_CONFIG_DIR`          | 設定ディレクトリを上書きする（主にテスト用。旧設定の移行も行わない） | `~/.config/lazy-tracker-cli`   |
+| `LT_CONFIG_DIR`          | 設定ディレクトリを上書きする（主にテスト用。旧設定の移行も行わない。誰でも書き込めるディレクトリは拒否する） | `~/.config/lazy-tracker-cli`   |
 | `NO_COLOR`               | 設定するとカラー出力を無効化する                                    | 未設定                         |
 
 ## 開発
