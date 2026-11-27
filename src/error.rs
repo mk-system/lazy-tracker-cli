@@ -66,13 +66,15 @@ pub fn format_error(err: &(dyn StdError + 'static), verbose: bool) -> String {
     if let Some(CliError::Api { status, body, .. }) = err.downcast_ref::<CliError>() {
         lines.push(format!("  status: {status}"));
         if let Some(body) = body.as_deref().filter(|b| !b.is_empty()) {
-            lines.push(format!("  response: {}", truncate_for_log(body)));
+            let body = truncate_for_log(body).replace('\n', "\n            ");
+            lines.push(format!("  response: {body}"));
         }
     }
 
     let mut cause = err.source();
     while let Some(inner) = cause {
-        lines.push(format!("  caused by: {inner}"));
+        let inner_text = style::strip_controls(&inner.to_string());
+        lines.push(format!("  caused by: {inner_text}"));
         cause = inner.source();
     }
 
@@ -144,6 +146,19 @@ mod tests {
         let verbose = format_error(&err, true);
         assert!(!verbose.contains("\u{1b}[2J"));
         assert!(!verbose.contains("\u{1b}]0;"));
+    }
+
+    #[test]
+    fn a_multi_line_response_body_stays_indented_under_its_label() {
+        let formatted = format_error(&api_error(400, Some("line1\n✓ Ticket deleted")), true);
+        assert!(formatted.contains("response: line1\n            ✓ Ticket deleted"));
+        assert!(!formatted.contains("\n✓"));
+    }
+
+    #[test]
+    fn escape_sequences_in_a_cause_do_not_reach_the_terminal() {
+        let err = CliError::network("Network error", "bad \u{1b}[2J cause".to_owned());
+        assert!(format_error(&err, true).contains("caused by: bad ?[2J cause"));
     }
 
     #[test]

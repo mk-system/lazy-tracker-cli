@@ -186,7 +186,7 @@ pub fn error_message(body: &str) -> Option<String> {
             .get(key)
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty())
-            .map(str::to_owned)
+            .map(crate::auth::oauth::one_line)
     })
 }
 
@@ -363,6 +363,14 @@ mod tests {
         assert!(err.to_string().contains("lt auth login --force"));
         assert!(h.ctx.store.load().unwrap().is_some());
         assert_eq!(h.server.count("POST", "/api/v1/oauth/token"), 1);
+    }
+
+    #[test]
+    fn a_server_message_is_flattened_to_one_line() {
+        assert_eq!(
+            error_message(r#"{"message":"bad\n✓ Ticket deleted"}"#).as_deref(),
+            Some("bad ✓ Ticket deleted")
+        );
     }
 
     #[test]

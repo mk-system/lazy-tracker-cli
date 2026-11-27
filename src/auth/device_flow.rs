@@ -46,7 +46,7 @@ pub fn request_device_code(ctx: &Context) -> Result<DeviceCode, CliError> {
     })?;
     if !response.is_success() {
         let message = OAuthError::parse(&response.body)
-            .and_then(|e| e.description().map(str::to_owned))
+            .and_then(|e| e.description())
             .unwrap_or_else(|| format!("Failed to request device code: {}", response.status));
         return Err(CliError::Auth(message));
     }
@@ -127,7 +127,7 @@ pub fn poll_for_token(
                 ));
             }
             other => {
-                let message = error.description().map(str::to_owned).unwrap_or_else(|| {
+                let message = error.description().unwrap_or_else(|| {
                     format!("Authorization failed: {}", other.unwrap_or("unknown_error"))
                 });
                 return Err(CliError::Auth(message));

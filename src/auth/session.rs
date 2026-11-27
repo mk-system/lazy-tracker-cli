@@ -88,7 +88,10 @@ fn exchange(ctx: &Context, refresh_token: &str) -> Result<TokenData, CliError> {
         return Err(CliError::Auth(SESSION_EXPIRED.to_owned()));
     }
 
-    let detail = match oauth_error.description().or(oauth_error.code()) {
+    let detail = match oauth_error
+        .description()
+        .or(oauth_error.code().map(str::to_owned))
+    {
         Some(reason) => format!("status {status}: {reason}"),
         None => format!("status {status}"),
     };

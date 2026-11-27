@@ -40,7 +40,15 @@ impl OAuthError {
         self.error.as_deref()
     }
 
-    pub fn description(&self) -> Option<&str> {
-        self.error_description.as_deref().filter(|d| !d.is_empty())
+    /// Flattened to one line so it cannot pose as further lines of output.
+    pub fn description(&self) -> Option<String> {
+        self.error_description
+            .as_deref()
+            .filter(|d| !d.is_empty())
+            .map(one_line)
     }
+}
+
+pub fn one_line(text: &str) -> String {
+    text.split(['\n', '\r']).collect::<Vec<_>>().join(" ")
 }
